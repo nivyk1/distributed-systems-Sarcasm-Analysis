@@ -16,14 +16,15 @@ public class AWS {
 
     public static String ami = "ami-00e95a9222311e8ed"; //linux and java
 
-    public static Region region1 = Region.US_WEST_2;
+    //public static Region region1 = Region.US_WEST_2;
     public static Region region2 = Region.US_EAST_1;
+    public static final int MAX_INSTANCES = 9; // maximum instances for a student account
 
     private static final AWS instance = new AWS();
 
     private AWS() {
-        s3 = S3Client.builder().region(region1).build();
-        sqs = SqsClient.builder().region(region1).build();
+        s3 = S3Client.builder().region(region2).build();
+        sqs = SqsClient.builder().region(region2).build();
         ec2 = Ec2Client.builder().region(region2).build();
     }
 
@@ -31,7 +32,10 @@ public class AWS {
         return instance;
     }
 
-    public String bucketName = "nitay-aws";
+    public String bucketName = "nitay-aws-test";
+    public static final String Input_Bucket_name = "";
+    public static final String Output_Bucket_name = "";
+    public static final String Jars_Bucket_name = "jars-test";
 
 
     // S3
@@ -102,4 +106,20 @@ public class AWS {
     }
 
 
+    public boolean checkIfManagerExist() {
+        String managerTag = "Manager";
+        Filter filter = Filter.builder().name("instance-state-name").values("running").build();
+        DescribeInstancesRequest request = DescribeInstancesRequest.builder().filters(filter).build();
+        DescribeInstancesResponse response = ec2.describeInstances(request);
+        for(var res : response.reservations()){
+            for(var ins : res.instances()){
+                for(var tag : ins.tags()){
+                    if (tag.key().equals("Name") && tag.value().equals(managerTag)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
 }
