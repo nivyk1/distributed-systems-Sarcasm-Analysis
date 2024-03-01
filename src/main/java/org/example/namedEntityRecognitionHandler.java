@@ -1,6 +1,7 @@
 package org.example;
 
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
@@ -28,7 +29,9 @@ public class namedEntityRecognitionHandler {
     }
 
 
-    public void printEntities(String review) {
+    public List<String> findEntities(String review) {
+
+        List<String> result = new ArrayList<String>();
         // create an empty Annotation just with the given text
         Annotation document = new Annotation(review);
         // run all Annotators on this text
@@ -45,8 +48,15 @@ public class namedEntityRecognitionHandler {
                 String word = token.get(TextAnnotation.class);
                 // this is the NER label of the token
                 String ne = token.get(NamedEntityTagAnnotation.class);
-                System.out.println("\t-" + word + ":" + ne);
+                //add only the relevant entities
+                if (ne.equals("PERSON") || ne.equals("LOCATION") || ne.equals("ORGANIZATION")) {
+                    result.add(word + ":" + ne);
+                }
             }
+
+
         }
+        return result;
     }
+
 }
