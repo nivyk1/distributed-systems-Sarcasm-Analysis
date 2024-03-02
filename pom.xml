@@ -5,13 +5,15 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.example</groupId>
-    <artifactId>assignment1</artifactId>
+    <artifactId>instancetest</artifactId>
     <version>1.0-SNAPSHOT</version>
+
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <mainClass>instancetest</mainClass>
     </properties>
 
     <dependencyManagement>
@@ -101,5 +103,6 @@
         <version>0.23</version>
     </dependency>
     </dependencies>
+
 
 </project>

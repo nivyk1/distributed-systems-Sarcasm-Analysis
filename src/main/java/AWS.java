@@ -15,7 +15,8 @@ public class AWS {
     private final Ec2Client ec2;
 
     public static String ami = "ami-00e95a9222311e8ed"; //linux and java
-
+//ami-00e95a9222311e8ed
+    //0ff8a91507f77f867
     //public static Region region1 = Region.US_WEST_2;
     public static Region region2 = Region.US_EAST_1;
     public static final int MAX_INSTANCES = 9; // maximum instances for a student account
@@ -35,7 +36,7 @@ public class AWS {
     public String bucketName = "nitay-aws-test";
     public static final String Input_Bucket_name = "";
     public static final String Output_Bucket_name = "";
-    public static final String Jars_Bucket_name = "jars-test";
+    public static final String Jars_Bucket_name = "nitay-aws-test";
 
 
     // S3
@@ -61,7 +62,7 @@ public class AWS {
     public String createEC2(String script, String tagName, int numberOfInstances) {
         Ec2Client ec2 = Ec2Client.builder().region(region2).build();
         RunInstancesRequest runRequest = (RunInstancesRequest) RunInstancesRequest.builder()
-                .instanceType(InstanceType.T2_MICRO)
+                .instanceType(InstanceType.T3_LARGE)
                 .imageId(ami)
                 .maxCount(numberOfInstances)
                 .minCount(1)
