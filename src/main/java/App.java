@@ -25,7 +25,7 @@ public class App {
     private static void setup() {
         activeManagerIfNotActive();
         //System.out.println("[DEBUG] Create bucket if not exist.");
-        //aws.createBucketIfNotExists(aws.bucketName);
+        //aws.createBucketIfNotExists("nitay-bucket-test");
     }
 
     private static void activeManagerIfNotActive() {
@@ -38,14 +38,14 @@ public class App {
     private static void createManager() {
         String managerScript = "#! /bin/bash\n" +
                 "sudo yum update -y\n" +
-                "sudo yum install -y java-17-amazon-corretto\n" +
-                "sudo update-alternatives --set java /usr/lib/jvm/java-17-amazon-corretto/bin/java\n" +
+                "sudo yum install -y java-21-amazon-corretto\n" +
                 "mkdir ManagerFiles\n" +
                 "aws s3 cp s3://" + AWS.Jars_Bucket_name + "/assignment1.jar ./ManagerFiles\n" +
                 "java -jar /ManagerFiles/assignment1.jar\n";
 
         aws.createEC2(managerScript, "Manager", 1);
     }
+    //"sudo update-alternatives --set java /usr/lib/jvm/java-17-amazon-corretto/bin/java\n" +
 
 /*    private static void createEC2() {
         String ec2Script = "#!/bin/bash\n" +
