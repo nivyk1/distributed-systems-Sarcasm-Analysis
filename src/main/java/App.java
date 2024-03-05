@@ -1,55 +1,81 @@
+import software.amazon.awssdk.services.ec2.model.InstanceType;
+
+import java.io.File;
+import java.util.UUID;
+
 public class App {
     final static AWS aws = AWS.getInstance();
+    static String clientId = UUID.randomUUID().toString();
+    final static String bucketName = "input-bucket-nitay";
+    public static String managerId;
+    private static final String sqsOut = "clientsToManager";
+    public static String clientsToManagerURL;
+    private static final String sqsIn = "managerToClients";
+    public static String managerToClientsURL;
+
 
     public static void main(String[] args) {// args = [inFilePath, outFilePath, tasksPerWorker, -t (terminate, optional)]
-        //* 1.Add a sanity check to each value
-        // 2.check for length of args
-        // 3. how does the terminate work?
-        // *//
-
-
-        //String inFilePath = args[0];
-        //String outFilePath = args[1];
-        //int tasksPerWorker = Integer.parseInt(args[2]);
+        String inputFileName = args[0];
+        String outputFileName = args[1];
+        String tasksPerWorker = args[2];
+//        boolean terminate = args.length > 3 && args[3].equals("terminate");
 
         try {
-            setup();
-            //createEC2();
+            setup(inputFileName,tasksPerWorker);
         } catch (Exception e) {
             e.printStackTrace();
         }
 
+
     }
 
-    //Create Buckets, Create Queues, Upload JARs to S3
-    private static void setup() {
+    //Create Buckets, Create Queues, Upload JARs to S3?
+    private static void setup(String inputFileName, String tasksPerWorker) {
         activeManagerIfNotActive();
+        //processRequest(inputFileName,tasksPerWorker);
+        //System.out.println("[DEBUG] Create bucket if not exist.");
+        //aws.createBucketIfNotExists("nitay-bucket-test");
+    }
+
+
+    //for test without using inputs through args
+    private static void setup_test() {
+        System.out.println("Creating SQS...");
+        clientsToManagerURL = aws.createSQS(sqsOut);
+        managerToClientsURL = aws.createSQS(sqsIn);
+        System.out.println("Finished creating SQS");
+
+        activeManagerIfNotActive();
+        //processRequest(inputFileName,tasksPerWorker);
         //System.out.println("[DEBUG] Create bucket if not exist.");
         //aws.createBucketIfNotExists("nitay-bucket-test");
     }
 
     private static void activeManagerIfNotActive() {
-        if (!aws.checkIfManagerExist()) {
-            createManager();
+        managerId = aws.checkIfManagerExist();
+        if (managerId == null) {
+            System.out.println("Creating SQS...");
+            clientsToManagerURL = aws.createSQS(sqsOut);
+            managerToClientsURL = aws.createSQS(sqsIn);
+            System.out.println("Finished creating SQS");
+
+            managerId=aws.createEC2Manager();
             System.out.println("Manager activated");
-        } else System.out.println("Manager is already activate");
+        } else
+        {
+            clientsToManagerURL = aws.getQueueUrl(sqsOut);
+            managerToClientsURL = aws.getQueueUrl(sqsIn);
+            System.out.println("Manager is already active");
+        }
     }
 
-    private static void createManager() {
-        String managerScript = "#! /bin/bash\n" +
-                "sudo yum update -y\n" +
-                "sudo yum install -y java-21-amazon-corretto\n" +
-                "mkdir ManagerFiles\n" +
-                "aws s3 cp s3://" + AWS.Jars_Bucket_name + "/assignment1.jar ./ManagerFiles\n" +
-                "java -jar /ManagerFiles/assignment1.jar\n";
+    private static void processRequest(String inputFileName, String tasksPerWorker) {
+        //put the input file in s3 storage
+        aws.uploadFile(bucketName, clientId, new File(inputFileName));
 
-        aws.createEC2(managerScript, "Manager", 1);
+        // notify the manager that it has a new task
+        String message = clientId + "\t" + tasksPerWorker;
+        aws.sendMessage(message, clientsToManagerURL);
     }
-    //"sudo update-alternatives --set java /usr/lib/jvm/java-17-amazon-corretto/bin/java\n" +
 
-/*    private static void createEC2() {
-        String ec2Script = "#!/bin/bash\n" +
-                "echo Hello World\n";
-        String managerInstanceID = aws.createEC2(ec2Script, "thisIsJustAString", 1);
-    }*/
 }
