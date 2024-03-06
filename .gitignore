@@ -7,10 +7,6 @@ out/
 /src/main/java/instancetest.java
 
 
-.idea/
-
-
-
 ### IntelliJ IDEA ###
 .idea/modules.xml
 .idea/jarRepositories.xml
