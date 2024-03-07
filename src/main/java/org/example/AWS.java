@@ -12,6 +12,7 @@ import software.amazon.awssdk.services.sqs.model.*;
 
 
 import java.io.File;
+import java.io.InputStream;
 import java.util.Base64;
 import java.util.List;
 
@@ -241,5 +242,12 @@ public class AWS {
                 .receiptHandle(message.receiptHandle())
                 .build();
         sqs.deleteMessage(deleteMessageRequest);
+    }
+    public InputStream getFile(String bucketName, String key){
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(bucketName)
+                .key(key)
+                .build();
+        return s3.getObject(getObjectRequest);
     }
 }
