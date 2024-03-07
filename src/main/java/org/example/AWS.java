@@ -250,4 +250,25 @@ public class AWS {
                 .build();
         return s3.getObject(getObjectRequest);
     }
+
+    public int countWorkerInstances() {
+        String workerTag = "worker";
+        int count = 0;
+
+        Filter filter = Filter.builder().name("instance-state-name").values("pending", "running").build();
+        DescribeInstancesRequest request = DescribeInstancesRequest.builder().filters(filter).build();
+        DescribeInstancesResponse response = ec2.describeInstances(request);
+
+        for (Reservation res : response.reservations()) {
+            for (Instance ins : res.instances()) {
+                for (Tag tag : ins.tags()) {
+                    if (tag.key().equals("Name") && tag.value().equals(workerTag)) {
+                        count++;
+                        break; // Found a worker instance, move to the next instance
+                    }
+                }
+            }
+        }
+        return count;
+    }
 }
