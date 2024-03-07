@@ -28,7 +28,7 @@ public class AWS {
     private final Ec2Client ec2;
 
     public static String ami = "ami-00e95a9222311e8ed"; //linux and java
-//ami-00e95a9222311e8ed
+    //ami-00e95a9222311e8ed
     //0ff8a91507f77f867
     public static Region region1 = Region.US_WEST_2;
     public static Region region2 = Region.US_EAST_1;
@@ -46,7 +46,7 @@ public class AWS {
         return instance;
     }
 
-    public static final String jar_test= "test-jar";
+    public static final String jar_test = "test-jar";
     public static final String Input_Bucket_name = "";
     public static final String Output_Bucket_name = "";
     public static final String Jars_Bucket_name = "niv-aws-test";
@@ -112,6 +112,7 @@ public class AWS {
         }
         return instanceId;
     }
+
     public String createEC2(String script, String tagName, int numberOfInstances) {
         Ec2Client ec2 = Ec2Client.builder().region(region2).build();
         RunInstancesRequest runRequest = (RunInstancesRequest) RunInstancesRequest.builder()
@@ -167,9 +168,9 @@ public class AWS {
         Filter filter = Filter.builder().name("instance-state-name").values("running").build();
         DescribeInstancesRequest request = DescribeInstancesRequest.builder().filters(filter).build();
         DescribeInstancesResponse response = ec2.describeInstances(request);
-        for(Reservation res : response.reservations()){
-            for(Instance ins : res.instances()){
-                for(Tag tag : ins.tags()){
+        for (Reservation res : response.reservations()) {
+            for (Instance ins : res.instances()) {
+                for (Tag tag : ins.tags()) {
                     if (tag.key().equals("Name") && tag.value().equals(managerTag)) {
                         return ins.instanceId();
                     }
@@ -178,7 +179,8 @@ public class AWS {
         }
         return null;
     }
-    public void uploadFile(String bucketName, String key, File file){
+    //key is the clientID
+    public void uploadFile(String bucketName, String key, File file) {
         s3.putObject(
                 PutObjectRequest.builder()
                         .bucket(bucketName)
@@ -189,21 +191,22 @@ public class AWS {
     }
 
 
-
     //SQS
 
-    public void sendMessage(String message, String queueUrl){
+    public void sendMessage(String message, String queueUrl) {
         sqs.sendMessage(SendMessageRequest.builder()
                 .queueUrl(queueUrl)
                 .messageBody(message)
                 .delaySeconds(10)
                 .build());
     }
-    public String getQueueUrl(String queueName){
+
+    public String getQueueUrl(String queueName) {
         GetQueueUrlResponse getQueueUrlResponse =
                 sqs.getQueueUrl(GetQueueUrlRequest.builder().queueName(queueName).build());
         return getQueueUrlResponse.queueUrl();
     }
+
     public String createSQS(String name) {
 
         try {
@@ -224,10 +227,11 @@ public class AWS {
     }
 
     //pull messages from queue up to maximum of numOfMessages
-    public List<Message> receiveMessage(String queueUrl, int numOfMessages){
+    public List<Message> receiveMessage(String queueUrl, int numOfMessages) {
         ReceiveMessageRequest receiveMessageRequest = ReceiveMessageRequest.builder()
                 .queueUrl(queueUrl)
                 .maxNumberOfMessages(numOfMessages)
                 .build();
         return sqs.receiveMessage(receiveMessageRequest).messages();
+    }
 }

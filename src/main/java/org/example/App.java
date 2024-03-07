@@ -1,22 +1,20 @@
 package org.example;
 
-import com.google.protobuf.Internal;
 import software.amazon.awssdk.services.sqs.model.*;
 import java.io.File;
-import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 
 public class App {
     final static AWS aws = AWS.getInstance();
     static String clientId = UUID.randomUUID().toString();
-    final static String bucketName = "input-bucket-nitay";
+    final static String bucketName = "inputobjects";
     public static String managerId;
     private static final String sqsOut = "clientsToManager";
     public static String clientsToManagerURL;
     private static final String sqsIn = "managerToClients";
     public static String managerToClientsURL;
-    HashMap<String, StringBuilder> map = new HashMap<>();
+
 
 
     public static void main(String[] args) {// args = [inFilePath, outFilePath, tasksPerWorker, -t (terminate, optional)]
@@ -29,20 +27,20 @@ public class App {
         int numOfInputFiles=argsCheck(args,terminate);
         //TODO if numOfInputFiles ==-1 raise error
 
-        managerId = aws.checkIfManagerExist();
-        if(managerId==null)
-        {
-            try {
-                setup();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-        else
-        {
-            clientsToManagerURL = aws.getQueueUrl(sqsOut);
-            managerToClientsURL = aws.getQueueUrl(sqsIn);
-        }
+       // managerId = aws.checkIfManagerExist();
+//        if(managerId==null)
+//        {
+//            try {
+//                setup();
+//            } catch (Exception e) {
+//                e.printStackTrace();
+//            }
+//        }
+//        else
+//        {
+//            clientsToManagerURL = aws.getQueueUrl(sqsOut);
+//            managerToClientsURL = aws.getQueueUrl(sqsIn);
+//        }
 
         //todo maybe need to check if it uploaded succsessfully
         uploadInputstoS3(args,numOfInputFiles,tasksPerWorker);
@@ -50,19 +48,19 @@ public class App {
         // loop for waiting for results
         int numOfOutputs=0;
        boolean isfinished=false;
-       while(!isfinished)
-       {
-           List<Message> messages = aws.receiveMessage(managerToClientsURL, 5);
-           for (Message m:messages)
-           {
-               //messageformat(maybe?) clientID+inputfilename+ rest of lines from the form <p>something</p>\n<p>something</p>\n<p>something</p>
-               numOfOutputs++;
-               //todo createhtml(m)
-
-           }
-
-
-       }
+//       while(!isfinished)
+//       {
+//           List<Message> messages = aws.receiveMessage(managerToClientsURL, 5);
+//           for (Message m:messages)
+//           {
+//               //messageformat(maybe?) clientID+inputfilename+ rest of lines from the form <p>something</p>\n<p>something</p>\n<p>something</p>
+//               numOfOutputs++;
+//               //todo createhtml(m)
+//
+//           }
+//
+//
+//       }
 
 
 
@@ -73,7 +71,7 @@ public class App {
     //Create Buckets, Create Queues
     private static void setup() {
         System.out.println("[DEBUG] Create bucket if not exist.");
-        aws.createBucketIfNotExists("niv-aws-test");
+        aws.createBucketIfNotExists("inputobjects");
         activeManagerIfNotActive();
         //processRequest(inputFileName,tasksPerWorker);
 
@@ -141,7 +139,7 @@ public class App {
 
     private static void processRequest(String inputFileName, String tasksPerWorker) {
         //put the input file in s3 storage
-        aws.uploadFile(bucketName, clientId, new File(inputFileName));
+       // aws.uploadFile(bucketName, clientId, new File(inputFileName));
 
         // notify the manager that it has a new task
         String message = clientId + "\t" + tasksPerWorker;
@@ -151,13 +149,17 @@ public class App {
     // todo maybe need to add try and catch statements
     private static void uploadInputstoS3(String [] args,int numOfInputFiles,String tasksPerWorker)
     {
-        for(int i=0;i<numOfInputFiles-1;i++)
-        {
-            aws.uploadFile(bucketName, clientId, new File(args[i]));
-            // notify the manager that it has a new task
-            String message = clientId + "\t" + tasksPerWorker;
-            aws.sendMessage(message, clientsToManagerURL);
+        if(numOfInputFiles!=-1) {
+            for (int i = 0; i < numOfInputFiles; i++) {
+                aws.uploadFile(bucketName, clientId+"\t"+args[i], new File(args[i]));
+                // notify the manager that it has a new task
+                // String message = clientId + "\t"+ tasksPerWorker;
+                // aws.sendMessage(message, clientsToManagerURL);
 
+            }
+        }
+        else{
+          System.out.println("wrong args");
         }
     }
 
