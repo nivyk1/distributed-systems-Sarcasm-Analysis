@@ -234,4 +234,12 @@ public class AWS {
                 .build();
         return sqs.receiveMessage(receiveMessageRequest).messages();
     }
+    public void deleteMessage(Message message, String queueUrl) {
+
+        DeleteMessageRequest deleteMessageRequest = DeleteMessageRequest.builder()
+                .queueUrl(queueUrl)
+                .receiptHandle(message.receiptHandle())
+                .build();
+        sqs.deleteMessage(deleteMessageRequest);
+    }
 }
