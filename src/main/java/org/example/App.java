@@ -1,7 +1,9 @@
 package org.example;
 
 import software.amazon.awssdk.services.sqs.model.*;
-import java.io.File;
+
+import java.io.*;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -16,18 +18,17 @@ public class App {
     public static String managerToClientsURL;
 
 
-
     public static void main(String[] args) {// args = [inFilePath, outFilePath, tasksPerWorker, -t (terminate, optional)]
-       // String inputFileName = args[0];
-      //  String outputFileName = args[1];
-      //  String tasksPerWorker = args[2];
-      // boolean terminate = args.length > 3 && args[3].equals("terminate");
-        boolean terminate = args[args.length-1].equals("terminate");
-       String tasksPerWorker= terminate ? args[args.length-2]: args[args.length-1];
-        int numOfInputFiles=argsCheck(args,terminate);
+        // String inputFileName = args[0];
+        //  String outputFileName = args[1];
+        //  String tasksPerWorker = args[2];
+        // boolean terminate = args.length > 3 && args[3].equals("terminate");
+        boolean terminate = args[args.length - 1].equals("terminate");
+        String tasksPerWorker = terminate ? args[args.length - 2] : args[args.length - 1];
+        int numOfInputFiles = argsCheck(args, terminate);
         //TODO if numOfInputFiles ==-1 raise error
 
-       // managerId = aws.checkIfManagerExist();
+        // managerId = aws.checkIfManagerExist();
 //        if(managerId==null)
 //        {
 //            try {
@@ -43,27 +44,30 @@ public class App {
 //        }
 
         //todo maybe need to check if it uploaded succsessfully
-        uploadInputstoS3(args,numOfInputFiles,tasksPerWorker);
+        uploadInputstoS3(args, numOfInputFiles, tasksPerWorker);
 
         // loop for waiting for results
-        int numOfOutputs=0;
-       boolean isfinished=false;
-//       while(!isfinished)
-//       {
-//           List<Message> messages = aws.receiveMessage(managerToClientsURL, 5);
-//           for (Message m:messages)
-//           {
-//               //messageformat(maybe?) clientID+inputfilename+ rest of lines from the form <p>something</p>\n<p>something</p>\n<p>something</p>
-//               numOfOutputs++;
-//               //todo createhtml(m)
-//
-//           }
-//
-//
-//       }
+        int numOfOutputs = 0;
+        boolean isfinished = false;
+        List<String> argsList=Arrays.asList(args);
+        while (!isfinished) {
+            List<Message> messages = aws.receiveMessage(managerToClientsURL, 5);
+            for (Message m : messages) {
+               if (m.body().startsWith(clientId))
+               {
+                   InputStream content = aws.getFile(bucketName, m.body());
+                   int inputIndexInArgs=argsList.indexOf(m.body().split("\n")[1]);
+                   createHtml(content,args[inputIndexInArgs+numOfInputFiles]);
+                   numOfOutputs++;
+                }
+
+            }
+            if (numOfOutputs == numOfInputFiles) {
+                isfinished = true;
+            }
 
 
-
+        }
 
 
     }
@@ -79,31 +83,21 @@ public class App {
 
     //checks if the number of input file equals to the number of output file
     //and return the number of inputfiles. if its not equal, return -1;
-    public static int argsCheck(String []args,boolean terminate)
-    {
-        if(terminate)
-        {
-            if (args.length %2==0) {
+    public static int argsCheck(String[] args, boolean terminate) {
+        if (terminate) {
+            if (args.length % 2 == 0) {
                 return (args.length - 2) / 2;
-            }
-            else
-            {
+            } else {
                 return -1;
             }
-        }
-
-        else
-        {
-            if (args.length %2==1) {
+        } else {
+            if (args.length % 2 == 1) {
                 return (args.length - 1) / 2;
-            }
-            else
-            {
+            } else {
                 return -1;
             }
         }
     }
-
 
 
     //for test without using inputs through args
@@ -127,10 +121,9 @@ public class App {
             managerToClientsURL = aws.createSQS(sqsIn);
             System.out.println("Finished creating SQS");
 
-            managerId=aws.createEC2Manager();
+            managerId = aws.createEC2Manager();
             System.out.println("Manager activated");
-        } else
-        {
+        } else {
             clientsToManagerURL = aws.getQueueUrl(sqsOut);
             managerToClientsURL = aws.getQueueUrl(sqsIn);
             System.out.println("Manager is already active");
@@ -139,7 +132,7 @@ public class App {
 
     private static void processRequest(String inputFileName, String tasksPerWorker) {
         //put the input file in s3 storage
-       // aws.uploadFile(bucketName, clientId, new File(inputFileName));
+        // aws.uploadFile(bucketName, clientId, new File(inputFileName));
 
         // notify the manager that it has a new task
         String message = clientId + "\t" + tasksPerWorker;
@@ -147,20 +140,49 @@ public class App {
     }
 
     // todo maybe need to add try and catch statements
-    private static void uploadInputstoS3(String [] args,int numOfInputFiles,String tasksPerWorker)
-    {
-        if(numOfInputFiles!=-1) {
+    private static void uploadInputstoS3(String[] args, int numOfInputFiles, String tasksPerWorker) {
+        if (numOfInputFiles != -1) {
             for (int i = 0; i < numOfInputFiles; i++) {
-                aws.uploadFile(bucketName, clientId+"\t"+args[i], new File(args[i]));
+                aws.uploadFile(bucketName, clientId + "\n" + args[i], new File(args[i]));
                 // notify the manager that it has a new task
-                // String message = clientId + "\t"+ tasksPerWorker;
-                // aws.sendMessage(message, clientsToManagerURL);
+                String message = clientId + "\n" + args[i] + "\t" + tasksPerWorker;
+                aws.sendMessage(message, clientsToManagerURL);
 
             }
-        }
-        else{
-          System.out.println("wrong args");
+        } else {
+            System.out.println("wrong args");
         }
     }
+
+    public static void createHtml(InputStream inputStream, String outputName) {
+        try {
+            FileWriter htmlFile = new FileWriter(outputName + ".html");
+            htmlFile.write("<html>\n");
+            htmlFile.write("<head>\n");
+            htmlFile.write("</head>\n");
+            htmlFile.write("<body>\n");
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    htmlFile.write(line+"\n");
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            htmlFile.write("</body>\n");
+            htmlFile.write("</html>\n");
+
+            htmlFile.close();
+
+        } catch (IOException e) {
+            System.out.println("An error occurred while creating the HTML file.");
+            e.printStackTrace();
+        }
+
+    }
+
+
+
 
 }

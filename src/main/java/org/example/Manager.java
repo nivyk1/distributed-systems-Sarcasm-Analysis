@@ -46,9 +46,10 @@ public class Manager {
 
     private static void ReceiveMessage(){
         List<Message> messages = aws.receiveMessage(clientsToManagerURL, 1);
-        if (messages.size() > 0) {
+        if (!messages.isEmpty()) {
             System.out.println("Manager received a message");
         }
+        //todo , add else in case list is empty
         for (Message msg : messages) {
             if (msg.body().equals("terminate")) {
                 terminateFlag = true;
@@ -99,6 +100,9 @@ public class Manager {
                 if (aws.countWorkerInstances() < 8) {
                     String workerId = aws.createEC2(workerScript,"worker",1);
                     workerIds.put("worker" + i + numberOfRunningWorkers + 1, workerId);
+                }
+                else{
+                    break;
                 }
             }
 
