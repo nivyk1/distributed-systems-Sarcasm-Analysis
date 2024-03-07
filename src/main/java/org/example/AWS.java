@@ -1,3 +1,5 @@
+package org.example;
+
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.ec2.Ec2Client;
@@ -8,16 +10,18 @@ import software.amazon.awssdk.services.s3.model.*;
 import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.*;
 
+
 import java.io.File;
 import java.util.Base64;
+import java.util.List;
 
 public class AWS {
     private final String managerScript = "#! /bin/bash\n" +
             "sudo yum update -y\n" +
             "sudo yum install -y java-21-amazon-corretto\n" +
             "mkdir ManagerFiles\n" +
-            "aws s3 cp s3://" + AWS.Jars_Bucket_name + "/assignment1.jar ./ManagerFiles\n" +
-            "java -jar /ManagerFiles/assignment1.jar\n";
+            "aws s3 cp s3://" + AWS.Jars_Bucket_name + "/instancetest.jar ./ManagerFiles\n" +
+            "java -jar /ManagerFiles/instancetest.jar\n";
 
     private final S3Client s3;
     private final SqsClient sqs;
@@ -45,7 +49,7 @@ public class AWS {
     public static final String jar_test= "test-jar";
     public static final String Input_Bucket_name = "";
     public static final String Output_Bucket_name = "";
-    public static final String Jars_Bucket_name = "nitay-aws-test";
+    public static final String Jars_Bucket_name = "niv-aws-test";
 
 
     // S3
@@ -183,6 +187,11 @@ public class AWS {
                         .build(),
                 RequestBody.fromFile(file));
     }
+
+
+
+    //SQS
+
     public void sendMessage(String message, String queueUrl){
         sqs.sendMessage(SendMessageRequest.builder()
                 .queueUrl(queueUrl)
@@ -213,4 +222,12 @@ public class AWS {
         }
         return "";
     }
+
+    //pull messages from queue up to maximum of numOfMessages
+    public List<Message> receiveMessage(String queueUrl, int numOfMessages){
+        ReceiveMessageRequest receiveMessageRequest = ReceiveMessageRequest.builder()
+                .queueUrl(queueUrl)
+                .maxNumberOfMessages(numOfMessages)
+                .build();
+        return sqs.receiveMessage(receiveMessageRequest).messages();
 }

@@ -1,6 +1,7 @@
 package org.example;
 import org.json.*;
 
+
 import javax.json.JsonObject;
 import javax.json.stream.JsonParser;
 import java.io.*;
@@ -9,9 +10,20 @@ import java.util.List;
 
 
 public class Manager {
+    final static AWS aws = AWS.getInstance();
+
+    private static final String sqsFromclients = "clientsToManager";
+    public static String clientsToManagerURL;
+    private static final String sqsToClients = "managerToClients";
+    public static String managerToClientsURL;
+    private static final String sqsFromWorkers = "workersToManager";
+    public static String workersToManagerURL;
+    private static final String sqsToWorkers = "managerToWorkers";
+    public static String managerToWorkersURL;
+    public static void main(String[] args) {
 
 
-    public Manager() {
+
     }
 
     public List<String>  jsonparser(String path) throws FileNotFoundException {
