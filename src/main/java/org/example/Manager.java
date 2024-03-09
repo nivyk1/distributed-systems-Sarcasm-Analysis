@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -31,7 +32,7 @@ public class Manager {
     public static String workersToManagerURL;
     private static final String sqsToWorkers = "managerToWorkers";
     private static boolean terminateFlag = false;
-    public static ConcurrentHashMap<String, Integer> filesPerClient = new ConcurrentHashMap<>();
+   // public static ConcurrentHashMap<String, Integer> filesPerClient = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, Integer> reviewsPerFile = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, String> workerIds = new ConcurrentHashMap<>();
 
@@ -40,32 +41,39 @@ public class Manager {
     public static void main(String[] args) {
         setup();
         //stop receiving messages after terminate message
-        if(!terminateFlag)
+        while(!terminateFlag){
+            try {
+                TimeUnit.SECONDS.sleep(5);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
             ReceiveMessage();
+        }
+
     }
 
     private static void ReceiveMessage(){
         List<Message> messages = aws.receiveMessage(clientsToManagerURL, 1);
         if (!messages.isEmpty()) {
             System.out.println("Manager received a message");
-        }
-        //todo , add else in case list is empty
-        for (Message msg : messages) {
-            if (msg.body().equals("terminate")) {
-                terminateFlag = true;
-                //don't receive more messages
-                break;
-            }
-            else {
-                try {
-                    handleMessage(msg.body());
-                } catch (Exception e) {
-                    e.printStackTrace();
-                } finally {
-                    aws.deleteMessage(msg, clientsToManagerURL);
+            for (Message msg : messages) {
+                if (msg.body().equals("terminate")) {
+                    terminateFlag = true;
+                    //don't receive more messages
+                    break;
+                }
+                else {
+                    try {
+                        handleMessage(msg.body());
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    } finally {
+                        aws.deleteMessage(msg, clientsToManagerURL);
+                    }
                 }
             }
         }
+
     }
 
 
@@ -97,7 +105,7 @@ public class Manager {
             System.out.println("numberOfNeededWorkers-" + numOfWorkersNeeded);
             System.out.println("numberOfRunningWorkers-" + numberOfRunningWorkers);
             for (int i = 0; i < numOfWorkersNeeded; i++) {
-                if (aws.countWorkerInstances() < 8) {
+                if (aws.countWorkerInstances() < AWS.MAX_WORKERS_INSTANCES) {
                     String workerId = aws.createEC2(workerScript,"worker",1);
                     workerIds.put("worker" + i + numberOfRunningWorkers + 1, workerId);
                 }
@@ -152,6 +160,18 @@ public class Manager {
         }
 
     }
+
+//    private static void terminate() {
+//        aws.deleteAllQueues();
+//
+//        aws.deleteAllBuckets();
+//
+//        //Terminate all workers, then manager
+//        for (int i = 0; i < aws.countWorkerInstances(); i++) {
+//            aws.terminateInstance(workerIds.get("worker" + i +1));
+//        }
+//        aws.terminateInstance(managerId);
+//    }
 
 }
 

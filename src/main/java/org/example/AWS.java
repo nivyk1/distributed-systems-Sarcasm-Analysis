@@ -24,7 +24,7 @@ public class AWS {
             "aws s3 cp s3://" + AWS.Jars_Bucket_name + "/instancetest.jar ./ManagerFiles\n" +
             "java -jar /ManagerFiles/instancetest.jar\n";
 
-    private final S3Client s3;
+    public final S3Client s3;
     private final SqsClient sqs;
     private final Ec2Client ec2;
 
@@ -33,7 +33,7 @@ public class AWS {
     //0ff8a91507f77f867
     public static Region region1 = Region.US_WEST_2;
     public static Region region2 = Region.US_EAST_1;
-    public static final int MAX_INSTANCES = 9; // maximum instances for a student account
+    public static final int MAX_WORKERS_INSTANCES = 8; // maximum instances for a student account (real max is 9 but one is for the manager)
 
     private static final AWS instance = new AWS();
 
@@ -270,5 +270,46 @@ public class AWS {
             }
         }
         return count;
+    }
+
+    public void deleteAllQueues(){
+        try {
+            // Get a list of all SQS queues
+            ListQueuesResponse listQueuesResponse = sqs.listQueues();
+            List<String> queueUrls = listQueuesResponse.queueUrls();
+
+            // Iterate over each queue URL and delete the queue
+            for (String queueUrl : queueUrls) {
+                DeleteQueueRequest deleteQueueRequest = DeleteQueueRequest.builder()
+                        .queueUrl(queueUrl)
+                        .build();
+                sqs.deleteQueue(deleteQueueRequest);
+                System.out.println("Deleted queue: " + queueUrl);
+            }
+        }
+        catch (SqsException e) {
+            System.err.println(e.awsErrorDetails().errorMessage());
+            System.exit(1);
+        }
+    }
+
+    public void deleteAllBuckets(){
+        try {
+            // Get a list of all S3 buckets
+            ListBucketsResponse listBucketsResponse = s3.listBuckets();
+            for (Bucket bucket : listBucketsResponse.buckets()) {
+                String bucketName = bucket.name();
+                if (!bucketName.equals(AWS.Jars_Bucket_name)) { //delete everything except jar bucket
+                    // Delete the bucket
+                    DeleteBucketRequest deleteBucketRequest = DeleteBucketRequest.builder()
+                            .bucket(bucketName)
+                            .build();
+                    s3.deleteBucket(deleteBucketRequest);
+                    System.out.println("Deleted bucket: " + bucketName);
+                }
+            }
+        } catch (S3Exception e) {
+            System.err.println("Error occurred: " + e.awsErrorDetails().errorMessage());
+        }
     }
 }
