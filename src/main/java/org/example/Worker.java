@@ -21,6 +21,7 @@ public class Worker {
     private static final String sqsFromManager = "ManagerToWorkers";
     public static String ManagerToWorkersURL;
     private final static AWS aws = AWS.getInstance();
+
     private final static String bucketName = "SuperDuperBucket";
 
     public static boolean isTerminated=false;
@@ -52,6 +53,7 @@ public class Worker {
                 }
                 finally {
                     aws.deleteMessage(msg,ManagerToWorkersURL);
+
                 }
             }
 
@@ -63,7 +65,9 @@ public class Worker {
             StringBuilder result= new StringBuilder();
             while ((line = reader.readLine()) != null) {
 
+
                 result.append(ReviewHtmlmaker(line.split("\t")));
+
 
 
         }
