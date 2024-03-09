@@ -42,7 +42,10 @@ public class Manager {
 
 
     public static void main(String[] args) {
+        System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Manager started~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+
         setup();
+
         // opening a new thread that receive messages from worker and uploads full output when needed
         RecieveMessage recieveMessages = new RecieveMessage();
         Thread recieveMessagesThread = new Thread(recieveMessages);
@@ -91,11 +94,16 @@ public class Manager {
 
     //Setting up SQS and other resources
     private static void setup(){
+        //managerId = aws.createEC2Manager();
+        System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~created manager~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~entered setup~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
         clientsToManagerURL = aws.getQueueUrl(sqsFromclients);
         managerToClientsURL = aws.getQueueUrl(sqsToClients);
-        managerToWorkersURL = aws.createSQS(sqsToWorkers);
-        workersToManagerURL = aws.createSQS(sqsFromWorkers);
-        managerId = aws.checkIfManagerExist(); //use this function to get manager id
+        System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~got client SQS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        managerToWorkersURL = aws.getQueueUrl(sqsToWorkers);
+        workersToManagerURL = aws.getQueueUrl(sqsFromWorkers);
+        System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Created SQS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        managerId = aws.getManagerId();
     }
 
 

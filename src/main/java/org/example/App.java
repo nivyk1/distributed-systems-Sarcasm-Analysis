@@ -20,14 +20,16 @@ public class App {
     public static String clientsToManagerURL;
     private static final String sqsIn = "managerToClients";
     public static String managerToClientsURL;
-
+    private static final String sqsFromWorkers = "workersToManager";
+    public static String workersToManagerURL;
+    private static final String sqsToWorkers = "managerToWorkers";
+    public static String managerToWorkersURL;
+    public static boolean terminate;
 
     public static void main(String[] args) throws FileNotFoundException {// args = [inFilePath, outFilePath, tasksPerWorker, -t (terminate, optional)]
-        // String inputFileName = args[0];
-        //  String outputFileName = args[1];
-        //  String tasksPerWorker = args[2];
-        // boolean terminate = args.length > 3 && args[3].equals("terminate");
-        boolean terminate = args[args.length - 1].equals("terminate");
+        long start = System.currentTimeMillis()/1000;
+
+        terminate = args[args.length - 1].equals("terminate");
         String tasksPerWorker = terminate ? args[args.length - 2] : args[args.length - 1];
         int numOfInputFiles = argsCheck(args, terminate);
 
@@ -37,7 +39,7 @@ public class App {
             System.exit(1);
         }
 
-         managerId = aws.checkIfManagerExist();
+         managerId = aws.getManagerId(); //return null if doesn't exist
        if(managerId==null)
         {
             try {
@@ -50,6 +52,8 @@ public class App {
         {
             clientsToManagerURL = aws.getQueueUrl(sqsOut);
             managerToClientsURL = aws.getQueueUrl(sqsIn);
+            workersToManagerURL = aws.getQueueUrl(sqsFromWorkers);
+            workersToManagerURL = aws.getQueueUrl(sqsToWorkers);
         }
 
 
@@ -74,19 +78,32 @@ public class App {
             if (numOfOutputs == numOfInputFiles) {
                 isfinished = true;
             }
-
-
         }
-
-
+        long totalTime = System.currentTimeMillis()/1000 - start;
+        System.out.println("Total time in seconds - " + totalTime);
     }
 
     //Create Buckets, Create Queues
     private static void setup() {
-        System.out.println("[DEBUG] Create bucket if not exist.");
-        aws.createBucketIfNotExists(bucketName);
-        activeManagerIfNotActive();
-        //processRequest(inputFileName,tasksPerWorker);
+
+        try {
+            System.out.println("[DEBUG] Create bucket if not exist.");
+            aws.createBucketIfNotExists(bucketName);
+            System.out.println("[DEBUG] Created bucket"+ "\t" + bucketName);
+
+            System.out.println("Creating SQS...");
+            clientsToManagerURL = aws.createSQS(sqsOut);
+            managerToClientsURL = aws.createSQS(sqsIn);
+            workersToManagerURL = aws.createSQS(sqsFromWorkers);
+            workersToManagerURL = aws.createSQS(sqsToWorkers);
+            System.out.println("Finished creating SQS");
+
+            managerId = aws.createEC2Manager();
+            System.out.println("Manager activated");
+        }
+        catch(Exception e){
+            e.printStackTrace();
+        }
 
     }
 
@@ -110,23 +127,6 @@ public class App {
 
 
 
-    private static void activeManagerIfNotActive() {
-        if (managerId == null) {
-            System.out.println("Creating SQS...");
-            clientsToManagerURL = aws.createSQS(sqsOut);
-            managerToClientsURL = aws.createSQS(sqsIn);
-            System.out.println("Finished creating SQS");
-
-            managerId = aws.createEC2Manager();
-            System.out.println("Manager activated");
-        } else {
-            clientsToManagerURL = aws.getQueueUrl(sqsOut);
-            managerToClientsURL = aws.getQueueUrl(sqsIn);
-            System.out.println("Manager is already active");
-        }
-    }
-
-
 
 
     private static void uploadInputstoS3(String[] args, int numOfInputFiles, String tasksPerWorker) throws FileNotFoundException {
@@ -136,6 +136,13 @@ public class App {
                 uploadSingleInputToS3(args[i],tasksPerWorker);
 
             }
+            if(terminate)
+            {
+                String message = "terminate";
+                aws.sendMessage(message, clientsToManagerURL);
+
+            }
+
         } else {
             System.out.println("wrong args");
         }
@@ -151,10 +158,10 @@ public class App {
 
                 String [] s=batch.split("\t",2);
                 totalreviews+= Integer.parseInt(s[0]);
-                aws.uploadString(bucketName, "input"+"\t"+clientId + "\t" + inputPath+"\t"+i , batch);
+                aws.uploadString(bucketName, "input"+"\t"+clientId + "\t" + inputPath+"\t"+i , s[1]);
             }
 
-        String message = "input"+"\t"+clientId + "\t" + inputPath+"\t"+batchesToUpload.size()+"\t"+totalreviews;
+        String message = "input"+"\t"+clientId + "\t" + inputPath+"\t"+batchesToUpload.size()+"\t"+tasksPerWorker+"\t"+totalreviews;
         aws.sendMessage(message, clientsToManagerURL);
 
     }

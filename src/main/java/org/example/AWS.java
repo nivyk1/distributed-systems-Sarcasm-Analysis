@@ -21,8 +21,8 @@ public class AWS {
             "sudo yum update -y\n" +
             "sudo yum install -y java-21-amazon-corretto\n" +
             "mkdir ManagerFiles\n" +
-            "aws s3 cp s3://" + AWS.Jars_Bucket_name + "/instancetest.jar ./ManagerFiles\n" +
-            "java -jar /ManagerFiles/instancetest.jar\n";
+            "aws s3 cp s3://" + AWS.Jars_Bucket_name + "/manager.jar ./ManagerFiles\n" +
+            "java -jar /ManagerFiles/manager.jar\n";
 
     public final S3Client s3;
     private final SqsClient sqs;
@@ -48,9 +48,9 @@ public class AWS {
     }
 
     public static final String jar_test = "test-jar";
-    public static final String input_Output_Bucket = "duper-duper-bucket-niv";
+    public static final String input_Output_Bucket = "super-duper-bucket-nitay";
     public static final String Output_Bucket_name = "";
-    public static final String Jars_Bucket_name = "niv-aws-test";
+    public static final String Jars_Bucket_name = "nitay-aws-jar";
 
 
     // S3
@@ -164,7 +164,7 @@ public class AWS {
 
     //this function checks all running instance for the manager tag
     //returns manager instance id if it exists, else returns null
-    public String checkIfManagerExist() {
+    public String getManagerId() {
         String managerTag = "Manager";
         Filter filter = Filter.builder().name("instance-state-name").values("running").build();
         DescribeInstancesRequest request = DescribeInstancesRequest.builder().filters(filter).build();
@@ -196,7 +196,6 @@ public class AWS {
                 PutObjectRequest.builder()
                         .bucket(bucketName)
                         .key(key)
-                        .acl(ObjectCannedACL.PUBLIC_READ)
                         .build(),
                 RequestBody.fromString(content));
     }
@@ -234,7 +233,7 @@ public class AWS {
             System.err.println(e.awsErrorDetails().errorMessage());
             System.exit(1);
         }
-        return "";
+        return "failed";
     }
 
     //pull messages from queue up to maximum of numOfMessages

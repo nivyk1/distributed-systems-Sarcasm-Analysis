@@ -16,11 +16,12 @@ public class Worker {
             "light green",
             "dark green"
     };
+
+    private final static AWS aws = AWS.getInstance();
     private static final String sqsToManager = "workersToManager";
     public static String workersToManagerURL;
-    private static final String sqsFromManager = "ManagerToWorkers";
+    private static final String sqsFromManager = "managerToWorkers";
     public static String ManagerToWorkersURL;
-    private final static AWS aws = AWS.getInstance();
 
     private final static String bucketName = AWS.input_Output_Bucket;
 
@@ -30,7 +31,8 @@ public class Worker {
 
     }
     public static void main(String[] args) throws IOException {
-
+        workersToManagerURL=aws.getQueueUrl(sqsToManager);
+        ManagerToWorkersURL=aws.getQueueUrl(sqsFromManager);
         while (true) {
 
             List<Message> messages = aws.receiveMessage(ManagerToWorkersURL, 1);
