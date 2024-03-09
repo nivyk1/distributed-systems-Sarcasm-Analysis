@@ -191,6 +191,16 @@ public class AWS {
                 RequestBody.fromFile(file));
     }
 
+    public void uploadString(String bucketName, String key, String content) {
+        s3.putObject(
+                PutObjectRequest.builder()
+                        .bucket(bucketName)
+                        .key(key)
+                        .acl(ObjectCannedACL.PUBLIC_READ)
+                        .build(),
+                RequestBody.fromString(content));
+    }
+
 
     //SQS
 

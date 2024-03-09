@@ -1,66 +1,100 @@
 package org.example;
 
+import software.amazon.awssdk.services.sqs.model.Message;
+
+import java.io.*;
 import java.util.List;
 
 public class Worker {
     private static sentimentAnalysisHandler sentimenthandler=new sentimentAnalysisHandler();
    private static namedEntityRecognitionHandler entityhandler=new namedEntityRecognitionHandler();
 
-    String[] colors = {
+   private static final String[] colors = {
             "dark red",
             "red",
             "black",
             "light green",
             "dark green"
     };
+    private static final String sqsToManager = "workersToManager";
+    public static String workersToManagerURL;
+    private static final String sqsFromManager = "ManagerToWorkers";
+    public static String ManagerToWorkersURL;
+    private final static AWS aws = AWS.getInstance();
+    private final static String bucketName = "inputobjects";
 
+    public static boolean isTerminated=false;
+// "input"+"\t"+Uid"+"\t"+Filename+"rownumber"
     public Worker() {
 
     }
+    public static void main(String[] args) throws IOException {
 
-
-    public String jobproccess(String job)
-    {
-        String [] reviews= job.split("\n");
-        String result="";
-        for(int i=0;i< reviews.length;i++) {
-        String [] singleReview=reviews[i].split("niv");
-            result+=ReviewHtmlmaker(singleReview);
+        while (true) {
+            List<Message> messages = aws.receiveMessage(ManagerToWorkersURL, 1);
+            for (Message msg : messages) {
+                if (msg.body().equals("terminate")) {
+                    isTerminated = true;
+                    //don't receive more messages
+                    break;
+                } else {
+                    String outPutKey="output"+"\t"+msg.body().split("\t",2)[1];
+                    //process the job and send the result to the queue
+                    aws.uploadString(bucketName,outPutKey,jobProccess(aws.getFile(bucketName,msg.body())));
+                    // notify the manager that it has a new task
+                    String message = outPutKey;
+                    aws.sendMessage(message, workersToManagerURL);
+                }
+            }
 
         }
+    }
+    public static String jobProccess(InputStream job) throws IOException {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(job))) {
+            String line;
+            StringBuilder result= new StringBuilder();
+            while ((line = reader.readLine()) != null) {
 
-       return result;
+                result.append(ReviewHtmlmaker(line.split("niv")));
+
+
+        }
+            return result.toString();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
 
     }
 
 
     // get the review and return a single line of the requested  output format for this specific review.
-    public String ReviewHtmlmaker(String [] review) {
-        String result = "";
+    public static String ReviewHtmlmaker(String[] review) {
+        StringBuilder result = new StringBuilder();
         int sentiment = sentimenthandler.findSentiment(review[1]);
-        result = "<p><a href=\"" + review[0] + "\" " + "style=\"color: " + colors[sentiment] + ";\">link</a>\t[";
+        result = new StringBuilder("<p><a href=\"" + review[0] + "\" " + "style=\"color: " + colors[sentiment] + ";\">link</a>\t[");
         List<String> reviewEntities = entityhandler.findEntities(review[1]);
         if (!reviewEntities.isEmpty()) {
             for (String s : reviewEntities) {
-                result += s + ",";
+                result.append(s).append(",");
             }
-            result = result.substring(0, result.length() - 1);
+            result = new StringBuilder(result.substring(0, result.length() - 1));
         }
 
-        result+="]";
+        result.append("]");
 
         if (Integer.parseInt(review[2]) == sentiment) {
-            result += "\t no sarcasm</p>\n";
+            result.append("\t no sarcasm</p>\n");
         } else {
-            result += "\t sarcasm</p>\n";
+            result.append("\t sarcasm</p>\n");
         }
 
 
-        return result;
+        return result.toString();
+
+    }
 
     }
 
 
 
-
-}
