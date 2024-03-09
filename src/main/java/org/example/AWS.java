@@ -76,13 +76,13 @@ public class AWS {
     //Manager
     public String createEC2Manager() {
         Ec2Client ec2 = Ec2Client.builder().region(region2).build();
-        RunInstancesRequest runRequest = (RunInstancesRequest) RunInstancesRequest.builder()
+        RunInstancesRequest runRequest = RunInstancesRequest.builder()
                 .instanceType(InstanceType.T3_LARGE)
                 .imageId(ami)
                 .maxCount(1)
                 .minCount(1)
                 .keyName("vockey")
-                .iamInstanceProfile(IamInstanceProfileSpecification.builder().name("LabInstanceProfile").build())
+                .iamInstanceProfile(IamInstanceProfileSpecification.builder().arn("arn:aws:iam::905418107445:instance-profile/LabInstanceProfile").build())
                 .userData(Base64.getEncoder().encodeToString((managerScript).getBytes()))
                 .build();
 

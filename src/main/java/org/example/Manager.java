@@ -9,7 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 
 public class Manager {
-    //todo change the jar accordingly
+
     private static final String workerScript = "#! /bin/bash\n" +
             "sudo yum update -y\n" +
             "sudo yum install -y java-21-amazon-corretto\n" +
@@ -18,7 +18,7 @@ public class Manager {
             "java -jar /WorkerFiles/worker.jar\n";
     final static AWS aws = AWS.getInstance();
 
-    //todo decide on a name for global bucket
+
     final static String input_Output_Bucket = AWS.input_Output_Bucket;
     
     private static final int reviewPerBatch = 10;
@@ -79,6 +79,7 @@ public class Manager {
                 }
                 else {
                     try {
+                        //todo thread
                         handleClientMessage(msg.body());
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -128,7 +129,7 @@ public class Manager {
             
             //Initiating workers instances 
             int numOfWorkersNeeded = (totalBatch*reviewPerBatch)/tasksPerWorker;
-            
+
             //todo check that this function is working
             int numberOfRunningWorkers = aws.countWorkerInstances();
 
@@ -145,6 +146,8 @@ public class Manager {
                     break;
                 }
             }
+            //todo open a new sqs for output
+
             //send msg to worker for each batch
             for (int i = 1; i < totalBatch + 1; i++) {
                 aws.sendMessage(key + "\t" +i ,managerToWorkersURL);
@@ -192,6 +195,7 @@ public class Manager {
             }
         }
         public void handleWorkerMessage(Message msg){
+            //todo instead of fileBatchCounter each thread will have it's own list concatinating the strings, when the list length reached totalbatchperfile it will upload the string to s3 and delete it's queue
             String[] message = msg.body().split("\t"); //Structure outPut \t UID \t Filename \t row
             String outPut = message[0];
             String clientId = message[1];
