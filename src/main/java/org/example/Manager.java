@@ -3,14 +3,9 @@ import org.json.*;
 import software.amazon.awssdk.services.sqs.model.Message;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
 
 public class Manager {
@@ -22,7 +17,12 @@ public class Manager {
             "aws s3 cp s3://" + AWS.Jars_Bucket_name + "/worker.jar ./WorkerFiles\n" +
             "java -jar /WorkerFiles/worker.jar\n";
     final static AWS aws = AWS.getInstance();
-    final static String inputBucket = "inputobjects";
+
+    //todo decide on a name for global bucket
+    final static String input_Output_Bucket = "inputobjects";
+    
+    private static final int reviewPerBatch = 10;
+    private static String managerId;
 
     private static final String sqsFromclients = "clientsToManager";
     public static String clientsToManagerURL;
@@ -31,40 +31,52 @@ public class Manager {
     private static final String sqsFromWorkers = "workersToManager";
     public static String workersToManagerURL;
     private static final String sqsToWorkers = "managerToWorkers";
+    public static String managerToWorkersURL;
     private static boolean terminateFlag = false;
-   // public static ConcurrentHashMap<String, Integer> filesPerClient = new ConcurrentHashMap<>();
-    public static ConcurrentHashMap<String, Integer> reviewsPerFile = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Integer> fileBatchCounter = new ConcurrentHashMap<>(); //key = file name , value = counter
+    public static ConcurrentHashMap<String, Integer> totalBatchesPerFile = new ConcurrentHashMap<>();//key = file name , value = TotalBatch
     public static ConcurrentHashMap<String, String> workerIds = new ConcurrentHashMap<>();
 
-    private static List<String> MessagesInProgress = new LinkedList<>();
-    public static String managerToWorkersURL;
+
+
+
+
     public static void main(String[] args) {
         setup();
+        // opening a new thread that receive messages from worker and uploads full output when needed
+        RecieveMessage recieveMessages = new RecieveMessage();
+        Thread recieveMessagesThread = new Thread(recieveMessages);
+        recieveMessagesThread.start();
+
         //stop receiving messages after terminate message
         while(!terminateFlag){
+            ReceiveMessageFromClient();
+        }
+        //terminate all instances when finished
+        while(!fileBatchCounter.isEmpty()){
             try {
-                TimeUnit.SECONDS.sleep(5);
+                Thread.sleep(5000); //5 seconds sleep between everycheck
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
-            ReceiveMessage();
         }
+            terminate();
 
     }
 
-    private static void ReceiveMessage(){
+    private static void ReceiveMessageFromClient(){
         List<Message> messages = aws.receiveMessage(clientsToManagerURL, 1);
         if (!messages.isEmpty()) {
             System.out.println("Manager received a message");
             for (Message msg : messages) {
                 if (msg.body().equals("terminate")) {
                     terminateFlag = true;
-                    //don't receive more messages
+                    //don't receive more messages from clients
                     break;
                 }
                 else {
                     try {
-                        handleMessage(msg.body());
+                        handleClientMessage(msg.body());
                     } catch (Exception e) {
                         e.printStackTrace();
                     } finally {
@@ -83,27 +95,39 @@ public class Manager {
         managerToClientsURL = aws.getQueueUrl(sqsToClients);
         managerToWorkersURL = aws.createSQS(sqsToWorkers);
         workersToManagerURL = aws.createSQS(sqsFromWorkers);
+        managerId = aws.checkIfManagerExist(); //use this function to get manager id
     }
 
 
-    private static void handleMessage(String msg) {
+    private static void handleClientMessage(String msg) {
         System.out.println("Manager handling task");
-        String[] messages = msg.split("\t"); // Message structure ClientId/nfilename/tasksperworker
-        String fileName = messages[0]; //Structure - ClientId/nfilename
-        int tasksPerWorker = Integer.parseInt(messages[1]);
-        MessagesInProgress.add(fileName);
+        String[] messages = msg.split("\t"); // Message structure input or output(this function handles client msg so it will be input) /t ClientId/t filename/t totalBatch /t tasksperworker /t Totalreviews
+        String input = messages[0];
+        String clientId = messages[1];
+        String fileName = messages[2];
+        int totalBatch = Integer.parseInt(messages[3]);
+        int tasksPerWorker = Integer.parseInt(messages[4]);
+        int totalReviews = Integer.parseInt(messages[5]);
 
-        InputStream task = aws.getFile(inputBucket,fileName);
+        String key = input + "\t" + clientId + "\t" + fileName;
+
+        //initiating new file in map with the value 0, when all the total rows finished we will process the full file
+        fileBatchCounter.put(fileName,0);
+        totalBatchesPerFile.put(fileName,totalBatch);
+
         try {
             System.out.println("starting work on " + fileName);
-            List<String> reviewList = jsonparser(task,fileName); //gets a list of reviews each string contains one line of reviews
-            //aws.deleteFile(bucketName, clientId);
-
-            int numOfWorkersNeeded = reviewsPerFile.get(fileName)/tasksPerWorker;
+            
+            //Initiating workers instances 
+            int numOfWorkersNeeded = (totalBatch*reviewPerBatch)/tasksPerWorker;
+            
+            //todo check that this function is working
             int numberOfRunningWorkers = aws.countWorkerInstances();
 
             System.out.println("numberOfNeededWorkers-" + numOfWorkersNeeded);
             System.out.println("numberOfRunningWorkers-" + numberOfRunningWorkers);
+            
+            //keep uploading workers if another file arrived - until reached maximum for student capacity(9-manager)
             for (int i = 0; i < numOfWorkersNeeded; i++) {
                 if (aws.countWorkerInstances() < AWS.MAX_WORKERS_INSTANCES) {
                     String workerId = aws.createEC2(workerScript,"worker",1);
@@ -113,9 +137,9 @@ public class Manager {
                     break;
                 }
             }
-
-            for (String review : reviewList) {
-                aws.sendMessage(fileName + "\t" + review, managerToWorkersURL);
+            //send msg to worker for each batch
+            for (int i = 1; i < totalBatch + 1; i++) {
+                aws.sendMessage(key + "\t" +i ,managerToWorkersURL);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -125,53 +149,95 @@ public class Manager {
 
     }
 
+    private static void terminate() {
+        RecieveMessage.terminate = true;
+        aws.deleteAllQueues();
 
-    //parsing input file into batches
-    // add counter to each batch in order to get total
-    public static List<String> jsonparser(InputStream file,String fileName) throws FileNotFoundException {
+        aws.deleteAllBuckets();
 
-        List<String> reviewsList = new ArrayList<String>();
+        //Terminate all workers, then manager
+        for (int i = 0; i < aws.countWorkerInstances(); i++) {
+            aws.terminateInstance(workerIds.get("worker" + i +1));
+        }
+        aws.terminateInstance(managerId);
+    }
 
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file))) {
-            String line;
-            int reviewcount=0;
-            while ((line = reader.readLine()) != null) {
-                // Create a JSONTokener with the JSON string
-                JSONTokener tokener = new JSONTokener(line); // Create a JSONObject using the JSONTokener
-                JSONObject jsonObject = new JSONObject(tokener);
-                String reviewsString="";
 
-                // Access the values of the keys
-                JSONArray reviewsArray = jsonObject.getJSONArray("reviews");
-                for(int i=0;i<reviewsArray.length();i++) {
-                    reviewcount++;
-                    JSONObject reviewObject = reviewsArray.getJSONObject(i);
-                   reviewsString=reviewsString + reviewObject.getString("link")+" "+ reviewObject.getString("text")+" "+ reviewObject.getInt("rating")+ "\n";
-                }
-                reviewsPerFile.put(fileName,reviewcount);
-                reviewsList.add(reviewsString);
+    public static class RecieveMessage implements Runnable {
+        public static boolean terminate = false;
+
+        //Count all returning batches from a file
+        @Override
+        public void run() {
+            while(!terminate){
+                List<Message> messages;
+                do {
+                    try {
+                        Thread.sleep(100); //wait 0.1 second before checking
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                    messages =aws.receiveMessage(workersToManagerURL, 1);
+                }while (messages.isEmpty());
+
+                handleWorkerMessage(messages.get(0));
+            }
+        }
+        public void handleWorkerMessage(Message msg){
+            String[] message = msg.body().split("\t"); //Structure outPut \t UID \t Filename \t row
+            String outPut = message[0];
+            String clientId = message[1];
+            String fileName = message[2];
+            String key = outPut + "\t" + clientId + "\t" + fileName;
+            int currCount = fileBatchCounter.get(fileName);
+            fileBatchCounter.put(fileName,currCount+1);
+
+            //successfully remove from queue --> the message in the sqs considered "inflight" until the visibility time finishes
+            try{
+                aws.deleteMessage(msg,workersToManagerURL);
+            }
+            catch (Exception e){
+                throw new RuntimeException(e);
             }
 
+            //Process full input file when all workers are finished
+            if ((fileBatchCounter.get(fileName)).equals (totalBatchesPerFile.get(fileName))){
 
-            return reviewsList;
+                //option to open a thread for the function processInputFile
+                processInputFile(key,fileName);
+                //notify client that the file is ready! the key is the path in s3
+                aws.sendMessage(key,managerToClientsURL);
+                removeFromMap(fileName);
+            }
+        }
 
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        public void processInputFile(String key,String filename){
+            try {
+                StringBuilder MergedFiles = new StringBuilder ();
+                for (int i = 1; i < totalBatchesPerFile.get(filename)+1; i++) {
+                    String batchKey = key +"\t"+i;
+                    InputStream batch = aws.getFile(input_Output_Bucket,batchKey);
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(batch));
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        MergedFiles.append(line).append("\n");
+                    }
+                }
+                //Upload to S3 completed output!!!
+                aws.uploadString(input_Output_Bucket,key,MergedFiles.toString());
+
+            }
+            catch(Exception e){
+                e.printStackTrace();
+            }
+        }
+
+        public void removeFromMap(String fileName){
+            fileBatchCounter.remove(fileName);
+            totalBatchesPerFile.remove(fileName);
         }
 
     }
-
-//    private static void terminate() {
-//        aws.deleteAllQueues();
-//
-//        aws.deleteAllBuckets();
-//
-//        //Terminate all workers, then manager
-//        for (int i = 0; i < aws.countWorkerInstances(); i++) {
-//            aws.terminateInstance(workerIds.get("worker" + i +1));
-//        }
-//        aws.terminateInstance(managerId);
-//    }
 
 }
 
