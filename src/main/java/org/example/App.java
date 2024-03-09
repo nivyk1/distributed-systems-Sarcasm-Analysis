@@ -62,6 +62,7 @@ public class App {
                    int inputIndexInArgs=argsList.indexOf(m.body().split("\t")[2]);
                    createHtml(content,args[inputIndexInArgs+numOfInputFiles]);
                    numOfOutputs++;
+                   aws.deleteMessage(m,managerToClientsURL);
                 }
 
             }
