@@ -30,7 +30,12 @@ public class App {
         boolean terminate = args[args.length - 1].equals("terminate");
         String tasksPerWorker = terminate ? args[args.length - 2] : args[args.length - 1];
         int numOfInputFiles = argsCheck(args, terminate);
+
         //TODO if numOfInputFiles ==-1 raise error
+        if(numOfInputFiles==-1) {
+            System.err.println("No input files were received");
+            System.exit(1);
+        }
 
          managerId = aws.checkIfManagerExist();
        if(managerId==null)
@@ -79,7 +84,7 @@ public class App {
     //Create Buckets, Create Queues
     private static void setup() {
         System.out.println("[DEBUG] Create bucket if not exist.");
-        aws.createBucketIfNotExists("inputobjects");
+        aws.createBucketIfNotExists(bucketName);
         activeManagerIfNotActive();
         //processRequest(inputFileName,tasksPerWorker);
 
@@ -106,7 +111,6 @@ public class App {
 
 
     private static void activeManagerIfNotActive() {
-        managerId = aws.checkIfManagerExist();
         if (managerId == null) {
             System.out.println("Creating SQS...");
             clientsToManagerURL = aws.createSQS(sqsOut);
