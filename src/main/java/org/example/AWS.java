@@ -322,4 +322,18 @@ public class AWS {
             System.err.println("Error occurred: " + e.awsErrorDetails().errorMessage());
         }
     }
+    public void terminateInstance(String instanceId) {
+        try{
+            TerminateInstancesRequest ti = TerminateInstancesRequest.builder()
+                    .instanceIds(instanceId)
+                    .build();
+
+            TerminateInstancesResponse response = ec2.terminateInstances(ti);
+            System.out.println("Termination status for instance " + instanceId + ": " + response.terminatingInstances().get(0).instanceId());
+
+        } catch (Ec2Exception e) {
+            System.err.println(e.awsErrorDetails().errorMessage());
+            System.exit(1);
+        }
+    }
 }
