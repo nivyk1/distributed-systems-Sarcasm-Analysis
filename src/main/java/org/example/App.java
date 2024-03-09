@@ -14,7 +14,7 @@ import java.util.UUID;
 public class App {
     final static AWS aws = AWS.getInstance();
     static String clientId = UUID.randomUUID().toString();
-    final static String bucketName = "SuperDuperBucket";
+    final static String bucketName = AWS.input_Output_Bucket;
     public static String managerId;
     private static final String sqsOut = "clientsToManager";
     public static String clientsToManagerURL;

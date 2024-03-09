@@ -19,7 +19,7 @@ public class Manager {
     final static AWS aws = AWS.getInstance();
 
     //todo decide on a name for global bucket
-    final static String input_Output_Bucket = "inputobjects";
+    final static String input_Output_Bucket = AWS.input_Output_Bucket;
     
     private static final int reviewPerBatch = 10;
     private static String managerId;

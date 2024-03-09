@@ -48,7 +48,7 @@ public class AWS {
     }
 
     public static final String jar_test = "test-jar";
-    public static final String Input_Bucket_name = "";
+    public static final String input_Output_Bucket = "duper-duper-bucket-niv";
     public static final String Output_Bucket_name = "";
     public static final String Jars_Bucket_name = "niv-aws-test";
 

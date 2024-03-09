@@ -22,7 +22,7 @@ public class Worker {
     public static String ManagerToWorkersURL;
     private final static AWS aws = AWS.getInstance();
 
-    private final static String bucketName = "SuperDuperBucket";
+    private final static String bucketName = AWS.input_Output_Bucket;
 
     public static boolean isTerminated=false;
 // "input"+"\t"+Uid"+"\t"+Filename+"rownumber"
