@@ -1,8 +1,12 @@
 package org.example;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.json.JSONTokener;
 import software.amazon.awssdk.services.sqs.model.*;
 
 import java.io.*;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -10,7 +14,7 @@ import java.util.UUID;
 public class App {
     final static AWS aws = AWS.getInstance();
     static String clientId = UUID.randomUUID().toString();
-    final static String bucketName = "inputobjects";
+    final static String bucketName = "SuperDuperBucket";
     public static String managerId;
     private static final String sqsOut = "clientsToManager";
     public static String clientsToManagerURL;
@@ -18,7 +22,7 @@ public class App {
     public static String managerToClientsURL;
 
 
-    public static void main(String[] args) {// args = [inFilePath, outFilePath, tasksPerWorker, -t (terminate, optional)]
+    public static void main(String[] args) throws FileNotFoundException {// args = [inFilePath, outFilePath, tasksPerWorker, -t (terminate, optional)]
         // String inputFileName = args[0];
         //  String outputFileName = args[1];
         //  String tasksPerWorker = args[2];
@@ -28,22 +32,22 @@ public class App {
         int numOfInputFiles = argsCheck(args, terminate);
         //TODO if numOfInputFiles ==-1 raise error
 
-        // managerId = aws.checkIfManagerExist();
-//        if(managerId==null)
-//        {
-//            try {
-//                setup();
-//            } catch (Exception e) {
-//                e.printStackTrace();
-//            }
-//        }
-//        else
-//        {
-//            clientsToManagerURL = aws.getQueueUrl(sqsOut);
-//            managerToClientsURL = aws.getQueueUrl(sqsIn);
-//        }
+         managerId = aws.checkIfManagerExist();
+       if(managerId==null)
+        {
+            try {
+                setup();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        else
+        {
+            clientsToManagerURL = aws.getQueueUrl(sqsOut);
+            managerToClientsURL = aws.getQueueUrl(sqsIn);
+        }
 
-        //todo maybe need to check if it uploaded succsessfully
+
         uploadInputstoS3(args, numOfInputFiles, tasksPerWorker);
 
         // loop for waiting for results
@@ -53,10 +57,9 @@ public class App {
         while (!isfinished) {
             List<Message> messages = aws.receiveMessage(managerToClientsURL, 5);
             for (Message m : messages) {
-               if (m.body().startsWith(clientId))
-               {
+                {
                    InputStream content = aws.getFile(bucketName, m.body());
-                   int inputIndexInArgs=argsList.indexOf(m.body().split("\n")[1]);
+                   int inputIndexInArgs=argsList.indexOf(m.body().split("\t")[2]);
                    createHtml(content,args[inputIndexInArgs+numOfInputFiles]);
                    numOfOutputs++;
                 }
@@ -100,18 +103,6 @@ public class App {
     }
 
 
-    //for test without using inputs through args
-    private static void setup_test() {
-        System.out.println("Creating SQS...");
-        clientsToManagerURL = aws.createSQS(sqsOut);
-        managerToClientsURL = aws.createSQS(sqsIn);
-        System.out.println("Finished creating SQS");
-
-        activeManagerIfNotActive();
-        //processRequest(inputFileName,tasksPerWorker);
-        //System.out.println("[DEBUG] Create bucket if not exist.");
-        //aws.createBucketIfNotExists("nitay-bucket-test");
-    }
 
     private static void activeManagerIfNotActive() {
         managerId = aws.checkIfManagerExist();
@@ -130,28 +121,37 @@ public class App {
         }
     }
 
-    private static void processRequest(String inputFileName, String tasksPerWorker) {
-        //put the input file in s3 storage
-        // aws.uploadFile(bucketName, clientId, new File(inputFileName));
 
-        // notify the manager that it has a new task
-        String message = clientId + "\t" + tasksPerWorker;
-        aws.sendMessage(message, clientsToManagerURL);
-    }
 
-    // todo maybe need to add try and catch statements
-    private static void uploadInputstoS3(String[] args, int numOfInputFiles, String tasksPerWorker) {
+
+    private static void uploadInputstoS3(String[] args, int numOfInputFiles, String tasksPerWorker) throws FileNotFoundException {
         if (numOfInputFiles != -1) {
             for (int i = 0; i < numOfInputFiles; i++) {
-                aws.uploadFile(bucketName, clientId + "\n" + args[i], new File(args[i]));
-                // notify the manager that it has a new task
-                String message = clientId + "\n" + args[i] + "\t" + tasksPerWorker;
-                aws.sendMessage(message, clientsToManagerURL);
+
+                uploadSingleInputToS3(args[i],tasksPerWorker);
 
             }
         } else {
             System.out.println("wrong args");
         }
+    }
+
+    private static void uploadSingleInputToS3(String inputPath, String tasksPerWorker) throws FileNotFoundException {
+
+        List<String> batchesToUpload =jsonparser(inputPath);
+        int i=0;
+        int totalreviews=0;
+        for (String batch: batchesToUpload) {
+                i++;
+
+                String [] s=batch.split("\t",2);
+                totalreviews+= Integer.parseInt(s[0]);
+                aws.uploadString(bucketName, "input"+"\t"+clientId + "\t" + inputPath+"\t"+i , batch);
+            }
+
+        String message = "input"+"\t"+clientId + "\t" + inputPath+"\t"+batchesToUpload.size()+"\t"+totalreviews;
+        aws.sendMessage(message, clientsToManagerURL);
+
     }
 
     public static void createHtml(InputStream inputStream, String outputName) {
@@ -183,6 +183,47 @@ public class App {
     }
 
 
+    public static List<String> jsonparser(String path) throws FileNotFoundException {
+
+        List<String> reviewsList = new ArrayList<String>();
+
+        try
+        {
+            BufferedReader reader = new BufferedReader(new FileReader(path));
+            String line;
+            int reviewcount=0;
+            while ((line = reader.readLine()) != null) {
+                // Create a JSONTokener with the JSON string
+                JSONTokener tokener = new JSONTokener(line); // Create a JSONObject using the JSONTokener
+                JSONObject jsonObject = new JSONObject(tokener);
+                StringBuilder reviewsString= new StringBuilder();
+
+                // Access the values of the keys
+                JSONArray reviewsArray = jsonObject.getJSONArray("reviews");
+                for(int i=0;i<reviewsArray.length();i++) {
+                    reviewcount++;
+                    JSONObject reviewObject = reviewsArray.getJSONObject(i);
+                    reviewsString.append(reviewObject.getString("link")).append("\t").append(reviewObject.getString("text")).append("\t").append(reviewObject.getInt("rating")).append("\n");
+                }
+
+                reviewsString.insert(0, reviewsArray.length()+"\t");
+                reviewsList.add(reviewsString.toString());
+            }
+
+
+            return reviewsList;
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
 
 
 }
+
+
+
+
+

@@ -21,7 +21,7 @@ public class Worker {
     private static final String sqsFromManager = "ManagerToWorkers";
     public static String ManagerToWorkersURL;
     private final static AWS aws = AWS.getInstance();
-    private final static String bucketName = "inputobjects";
+    private final static String bucketName = "SuperDuperBucket";
 
     public static boolean isTerminated=false;
 // "input"+"\t"+Uid"+"\t"+Filename+"rownumber"
@@ -31,19 +31,27 @@ public class Worker {
     public static void main(String[] args) throws IOException {
 
         while (true) {
+
             List<Message> messages = aws.receiveMessage(ManagerToWorkersURL, 1);
             for (Message msg : messages) {
-                if (msg.body().equals("terminate")) {
-                    isTerminated = true;
-                    //don't receive more messages
-                    break;
-                } else {
-                    String outPutKey="output"+"\t"+msg.body().split("\t",2)[1];
-                    //process the job and send the result to the queue
-                    aws.uploadString(bucketName,outPutKey,jobProccess(aws.getFile(bucketName,msg.body())));
-                    // notify the manager that it has a new task
-                    String message = outPutKey;
-                    aws.sendMessage(message, workersToManagerURL);
+                try {
+                    if (msg.body().equals("terminate")) {
+                        isTerminated = true;
+                        //don't receive more messages
+                        break;
+                    } else {
+                        String outPutKey = "output" + "\t" + msg.body().split("\t", 2)[1];
+                        //process the job and send the result to the queue
+                        aws.uploadString(bucketName, outPutKey, jobProccess(aws.getFile(bucketName, msg.body())));
+                        // notify the manager that it has a new task
+                        String message = outPutKey;
+                        aws.sendMessage(message, workersToManagerURL);
+                    }
+                }catch (Exception e) {
+                    e.printStackTrace();
+                }
+                finally {
+                    aws.deleteMessage(msg,ManagerToWorkersURL);
                 }
             }
 
@@ -55,7 +63,7 @@ public class Worker {
             StringBuilder result= new StringBuilder();
             while ((line = reader.readLine()) != null) {
 
-                result.append(ReviewHtmlmaker(line.split("niv")));
+                result.append(ReviewHtmlmaker(line.split("\t")));
 
 
         }
