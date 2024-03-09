@@ -43,16 +43,24 @@ public class Manager {
 
     public static void main(String[] args) {
         setup();
+        // opening a new thread that receive messages from worker and uploads full output when needed
+        RecieveMessage recieveMessages = new RecieveMessage();
+        Thread recieveMessagesThread = new Thread(recieveMessages);
+        recieveMessagesThread.start();
+
         //stop receiving messages after terminate message
-        //todo thread for receiving msgs from workers
-
-
-
-
         while(!terminateFlag){
-            //todo thread for this or maybe main
             ReceiveMessageFromClient();
         }
+        //terminate all instances when finished
+        while(!fileBatchCounter.isEmpty()){
+            try {
+                Thread.sleep(5000); //5 seconds sleep between everycheck
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+            terminate();
 
     }
 
@@ -63,7 +71,7 @@ public class Manager {
             for (Message msg : messages) {
                 if (msg.body().equals("terminate")) {
                     terminateFlag = true;
-                    //don't receive more messages
+                    //don't receive more messages from clients
                     break;
                 }
                 else {
@@ -141,43 +149,8 @@ public class Manager {
 
     }
 
-
-    //parsing input file into batches
-    // add counter to each batch in order to get total
-    public static List<String> jsonparser(InputStream file,String fileName) throws FileNotFoundException {
-
-        List<String> reviewsList = new ArrayList<String>();
-
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file))) {
-            String line;
-            int reviewcount=0;
-            while ((line = reader.readLine()) != null) {
-                // Create a JSONTokener with the JSON string
-                JSONTokener tokener = new JSONTokener(line); // Create a JSONObject using the JSONTokener
-                JSONObject jsonObject = new JSONObject(tokener);
-                String reviewsString="";
-
-                // Access the values of the keys
-                JSONArray reviewsArray = jsonObject.getJSONArray("reviews");
-                for(int i=0;i<reviewsArray.length();i++) {
-                    reviewcount++;
-                    JSONObject reviewObject = reviewsArray.getJSONObject(i);
-                   reviewsString=reviewsString + reviewObject.getString("link")+" "+ reviewObject.getString("text")+" "+ reviewObject.getInt("rating")+ "\n";
-                }
-                //reviewsPerFile.put(fileName,reviewcount);
-                reviewsList.add(reviewsString);
-            }
-
-
-            return reviewsList;
-
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
-    }
-
     private static void terminate() {
+        RecieveMessage.terminate = true;
         aws.deleteAllQueues();
 
         aws.deleteAllBuckets();
@@ -200,7 +173,7 @@ public class Manager {
                 List<Message> messages;
                 do {
                     try {
-                        Thread.sleep(1000); //wait one second before checking
+                        Thread.sleep(100); //wait 0.1 second before checking
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
                     }
