@@ -302,6 +302,14 @@ public class AWS {
         }
     }
 
+    public void deleteSingleQueue(String queueUrl)
+    {
+        DeleteQueueRequest deleteQueueRequest = DeleteQueueRequest.builder()
+                .queueUrl(queueUrl)
+                .build();
+        sqs.deleteQueue(deleteQueueRequest);
+    }
+
     public void deleteAllBuckets(){
         try {
             // Get a list of all S3 buckets

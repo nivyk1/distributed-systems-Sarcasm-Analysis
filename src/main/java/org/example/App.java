@@ -20,8 +20,8 @@ public class App {
     public static String clientsToManagerURL;
     private static final String sqsIn = "managerToClients";
     public static String managerToClientsURL;
-    private static final String sqsFromWorkers = "workersToManager";
-    public static String workersToManagerURL;
+   // private static final String sqsFromWorkers = "workersToManager";
+   // public static String workersToManagerURL;
     private static final String sqsToWorkers = "managerToWorkers";
     public static String managerToWorkersURL;
     public static boolean terminate;
@@ -52,8 +52,7 @@ public class App {
         {
             clientsToManagerURL = aws.getQueueUrl(sqsOut);
             managerToClientsURL = aws.getQueueUrl(sqsIn);
-            workersToManagerURL = aws.getQueueUrl(sqsFromWorkers);
-            workersToManagerURL = aws.getQueueUrl(sqsToWorkers);
+            managerToWorkersURL = aws.getQueueUrl(sqsToWorkers);
         }
 
 
@@ -94,8 +93,8 @@ public class App {
             System.out.println("Creating SQS...");
             clientsToManagerURL = aws.createSQS(sqsOut);
             managerToClientsURL = aws.createSQS(sqsIn);
-            workersToManagerURL = aws.createSQS(sqsFromWorkers);
-            workersToManagerURL = aws.createSQS(sqsToWorkers);
+            //workersToManagerURL = aws.createSQS(sqsFromWorkers);
+            managerToWorkersURL = aws.createSQS(sqsToWorkers);
             System.out.println("Finished creating SQS");
 
             managerId = aws.createEC2Manager();
@@ -155,7 +154,6 @@ public class App {
         int totalreviews=0;
         for (String batch: batchesToUpload) {
                 i++;
-
                 String [] s=batch.split("\t",2);
                 totalreviews+= Integer.parseInt(s[0]);
                 aws.uploadString(bucketName, "input"+"\t"+clientId + "\t" + inputPath+"\t"+i , s[1]);

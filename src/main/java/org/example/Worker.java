@@ -31,7 +31,7 @@ public class Worker {
 
     }
     public static void main(String[] args) throws IOException {
-        workersToManagerURL=aws.getQueueUrl(sqsToManager);
+
         ManagerToWorkersURL=aws.getQueueUrl(sqsFromManager);
         while (true) {
 
@@ -43,19 +43,22 @@ public class Worker {
                         //don't receive more messages
                         break;
                     } else {
+                       //message foramt: "input"+"\t"+clientId+"\t"+fileName+"\t"+batchnumber
+                        String [] messageinfo= msg.body().split("\t");
+
                         String outPutKey = "output" + "\t" + msg.body().split("\t", 2)[1];
                         //process the job and send the result to the queue
                         aws.uploadString(bucketName, outPutKey, jobProccess(aws.getFile(bucketName, msg.body())));
                         // notify the manager that it has a new task
                         String message = outPutKey;
-                        aws.sendMessage(message, workersToManagerURL);
+                        workersToManagerURL=aws.getQueueUrl(sqsToManager);
+                        aws.sendMessage(messageinfo[3], workersToManagerURL+messageinfo[1]+messageinfo[2]);
                     }
                 }catch (Exception e) {
                     e.printStackTrace();
                 }
                 finally {
                     aws.deleteMessage(msg,ManagerToWorkersURL);
-
                 }
             }
 
