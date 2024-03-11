@@ -18,6 +18,9 @@ import java.util.List;
 
 public class AWS {
     private final String managerScript = "#! /bin/bash\n" +
+            "AWS_ACCESS_KEY_ID="+System.getenv("AWS_ACCESS_KEY_ID")+
+            "AWS_SECRET_ACCESS_KEY="+ System.getenv("AWS_SECRET_ACCESS_KEY")+
+            "AWS_SESSION_TOKEN=" +System.getenv("AWS_SESSION_TOKEN")+"\n"+
             "sudo yum update -y\n" +
             "sudo yum install -y java-21-amazon-corretto\n" +
             "mkdir ManagerFiles\n" +
@@ -310,6 +313,8 @@ public class AWS {
         sqs.deleteQueue(deleteQueueRequest);
     }
 
+
+    //this functions delete all files from all buckets except the Jar bucket
     public void deleteAllBuckets(){
         try {
             // Get a list of all S3 buckets

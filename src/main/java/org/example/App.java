@@ -79,7 +79,7 @@ public class App {
             }
         }
         long totalTime = System.currentTimeMillis()/1000 - start;
-        System.out.println("Total time in seconds - " + totalTime);
+        System.out.println("Total run time in seconds - " + totalTime);
     }
 
     //Create Buckets, Create Queues
@@ -94,7 +94,7 @@ public class App {
             clientsToManagerURL = aws.createSQS(sqsOut);
             managerToClientsURL = aws.createSQS(sqsIn);
             //workersToManagerURL = aws.createSQS(sqsFromWorkers);
-            managerToWorkersURL = aws.createSQS(sqsToWorkers);
+            //managerToWorkersURL = aws.createSQS(sqsToWorkers);
             System.out.println("Finished creating SQS");
 
             managerId = aws.createEC2Manager();

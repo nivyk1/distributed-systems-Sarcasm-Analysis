@@ -3,12 +3,17 @@ import software.amazon.awssdk.services.sqs.model.Message;
 
 import java.io.*;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 public class Manager {
 
     private static final String workerScript = "#! /bin/bash\n" +
+            "AWS_ACCESS_KEY_ID="+System.getenv("AWS_ACCESS_KEY_ID")+
+            "AWS_SECRET_ACCESS_KEY="+ System.getenv("AWS_SECRET_ACCESS_KEY")+
+            "AWS_SESSION_TOKEN=" +System.getenv("AWS_SESSION_TOKEN")+"\n"+
             "sudo yum update -y\n" +
             "sudo yum install -y java-21-amazon-corretto\n" +
             "mkdir WorkerFiles\n" +
@@ -31,6 +36,7 @@ public class Manager {
     private static final String sqsToWorkers = "managerToWorkers";
     public static String managerToWorkersURL;
     private static boolean terminateFlag = false;
+    private static AtomicInteger filesProcessingCounter= new AtomicInteger(0) ;
 
     public static ConcurrentHashMap<String, String> workerIds = new ConcurrentHashMap<>();
 
@@ -48,19 +54,23 @@ public class Manager {
             ReceiveMessageFromClient();
         }
         //terminate all instances when finished
-        while(processClientFile.getThreadCounter()>0){
+        while(processClientFile.getThreadCounter()>0 && filesProcessingCounter.equals(new AtomicInteger(0))){
             try {
                 Thread.sleep(5000); //5 seconds sleep between everycheck
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
         }
-            terminate();
+            //if(managerToClientsURL.isEmpty())
+                terminate();
 
     }
 
+
+    //message structure :"input"+"\t"+clientId + "\t" + inputPath+"\t"+batchesToUpload.size()+"\t"+tasksPerWorker+"\t"+totalreviews;
     private static void ReceiveMessageFromClient(){
         List<Message> messages = aws.receiveMessage(clientsToManagerURL, 1);
+
         if (!messages.isEmpty()) {
             System.out.println("Manager received a message");
             for (Message msg : messages) {
@@ -70,6 +80,11 @@ public class Manager {
                     break;
                 }
                 else {
+                    filesProcessingCounter.incrementAndGet(); //count working process
+                    String[] msgArr =messages.get(0).body().split("\t");
+                    int tasksPerWorker = Integer.parseInt(msgArr[4]);
+                    int totalReviews = Integer.parseInt(msgArr[5]);
+                    startWorkerInstances(tasksPerWorker,totalReviews);
                     try {
 
                        Thread thread=new Thread(new processClientFile(msg.body()));
@@ -94,8 +109,8 @@ public class Manager {
         clientsToManagerURL = aws.getQueueUrl(sqsFromclients);
         managerToClientsURL = aws.getQueueUrl(sqsToClients);
         System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~got client SQS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-        managerToWorkersURL = aws.getQueueUrl(sqsToWorkers);
-        workersToManagerURL = aws.getQueueUrl(sqsFromWorkers);
+        managerToWorkersURL = aws.createSQS(sqsToWorkers);
+        //workersToManagerURL = aws.getQueueUrl(sqsFromWorkers);
         System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Created SQS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
         managerId = aws.getManagerId();
     }
@@ -103,13 +118,15 @@ public class Manager {
 
     private static void terminate() {
 
-
         aws.deleteAllQueues();
         aws.deleteAllBuckets();
 
         //Terminate all workers, then manager
+        Set<String> keys = workerIds.keySet();
+        String[] keysArray = keys.toArray(new String[0]);
         for (int i = 0; i < aws.countWorkerInstances(); i++) {
             aws.terminateInstance(workerIds.get("worker" + i +1));
+            System.out.println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  ~~~ Terminated Worker- "+keysArray[i]);
         }
         aws.terminateInstance(managerId);
     }
@@ -248,7 +265,30 @@ public class Manager {
             finalResult();
             aws.deleteSingleQueue(sqsUrl);
             processClientFile.DecrementThreadcounter();
+            filesProcessingCounter.decrementAndGet();
 
+        }
+    }
+
+    //Initiating workers instances
+    public static void startWorkerInstances(int tasksPerWorker, int totalReviews){
+
+        int numOfWorkersNeeded = totalReviews/tasksPerWorker;
+        int numberOfRunningWorkers = aws.countWorkerInstances();
+
+        System.out.println("numberOfNeededWorkers-" + numOfWorkersNeeded);
+        System.out.println("numberOfRunningWorkers-" + numberOfRunningWorkers);
+
+        //keep uploading workers if another file arrived - until reached maximum for student capacity(9-manager)
+        for (int i = 0; i < numOfWorkersNeeded; i++) {
+            if (aws.countWorkerInstances() < AWS.MAX_WORKERS_INSTANCES) {
+                String workerId = aws.createEC2(workerScript,"worker",1);
+                String workerKey ="worker" + i + numberOfRunningWorkers +1;
+                workerIds.put(workerKey, workerId);
+            }
+            else{
+                break;
+            }
         }
     }
 
