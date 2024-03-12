@@ -38,22 +38,20 @@ public class Worker {
             List<Message> messages = aws.receiveMessage(ManagerToWorkersURL, 1);
             for (Message msg : messages) {
                 try {
-                    if (msg.body().equals("terminate")) {
-                        isTerminated = true;
-                        //don't receive more messages
-                        break;
-                    } else {
-                       //message foramt: "input"+"\t"+clientId+"\t"+fileName+"\t"+batchnumber
+                       //message format: "input"+"\t"+clientId+"\t"+fileName+"\t"+userInputCount+"\t"+batchNumber
                         String [] messageinfo= msg.body().split("\t");
-
-                        String outPutKey = "output" + "\t" + msg.body().split("\t", 2)[1];
+                        String clientId = messageinfo[1];
+                        String fileName = messageinfo[2];
+                        String userInputCount = messageinfo[3];
+                        String batchNumber = messageinfo[4];
+                        String filePathS3 = "input"+"\t"+clientId+"\t"+fileName+"\t"+batchNumber;
+                        String outPutKey = "output" + "\t" + clientId + "\t" + fileName + "\t" + batchNumber;
                         //process the job and send the result to the queue
-                        aws.uploadString(bucketName, outPutKey, jobProccess(aws.getFile(bucketName, msg.body())));
+                        aws.uploadString(bucketName, outPutKey, jobProccess(aws.getFile(bucketName, filePathS3)));
                         // notify the manager that it has a new task
                         String message = outPutKey;
-                        workersToManagerURL=aws.getQueueUrl(sqsToManager);
-                        aws.sendMessage(messageinfo[3], workersToManagerURL+messageinfo[1]+messageinfo[2]);
-                    }
+                        workersToManagerURL=aws.getQueueUrl(clientId+"_"+userInputCount);
+                        aws.sendMessage(batchNumber, workersToManagerURL);
                 }catch (Exception e) {
                     e.printStackTrace();
                 }

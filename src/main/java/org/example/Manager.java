@@ -39,6 +39,7 @@ public class Manager {
     private static AtomicInteger filesProcessingCounter= new AtomicInteger(0) ;
 
     public static ConcurrentHashMap<String, String> workerIds = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Integer> usersInputCount = new ConcurrentHashMap<>();
 
 
 
@@ -54,7 +55,7 @@ public class Manager {
             ReceiveMessageFromClient();
         }
         //terminate all instances when finished
-        while(processClientFile.getThreadCounter()>0 && filesProcessingCounter.equals(new AtomicInteger(0))){
+        while(processClientFile.getThreadCounter()>0 && !filesProcessingCounter.equals(new AtomicInteger(0))){
             try {
                 Thread.sleep(5000); //5 seconds sleep between everycheck
             } catch (InterruptedException e) {
@@ -85,9 +86,13 @@ public class Manager {
                     int tasksPerWorker = Integer.parseInt(msgArr[4]);
                     int totalReviews = Integer.parseInt(msgArr[5]);
                     startWorkerInstances(tasksPerWorker,totalReviews);
+
+                    String userId = msgArr[1];
+                    updateUsersInputMap(userId);
+                    int userInputCount = usersInputCount.get(userId);
                     try {
 
-                       Thread thread=new Thread(new processClientFile(msg.body()));
+                       Thread thread=new Thread(new processClientFile(msg.body(),userInputCount));
                        thread.start();
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -110,7 +115,6 @@ public class Manager {
         managerToClientsURL = aws.getQueueUrl(sqsToClients);
         System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~got client SQS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
         managerToWorkersURL = aws.createSQS(sqsToWorkers);
-        //workersToManagerURL = aws.getQueueUrl(sqsFromWorkers);
         System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Created SQS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
         managerId = aws.getManagerId();
     }
@@ -143,6 +147,8 @@ public class Manager {
         private static int threadCounter = 0;
         String clientId;
         String fileName;
+        String fileNameWithoutSpecialChars;
+        int userInputCount;
         int TotalNumOfBatches;
         int arrivedResults=0;;
         String [] results;
@@ -150,13 +156,17 @@ public class Manager {
 
 
 
-        public processClientFile(String msg) {
+        public processClientFile(String msg,int _userInputCount) {
+            userInputCount=_userInputCount; //we will use this to make the new SQS name
             String[] message = msg.split("\t");
             clientId=message[1];
             fileName=message[2];
+//            fileNameWithoutSpecialChars = fileName.replaceAll("[\\\\:]","");
+
             TotalNumOfBatches=Integer.parseInt(message[3]);
             results=new String[TotalNumOfBatches+1];
             IncrementThreadcounter();
+            System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~thread started~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
         }
         public static  void IncrementThreadcounter() {
             synchronized (counterLock) {
@@ -178,14 +188,18 @@ public class Manager {
 
         public void mysetup()
         {
-            aws.createSQS(sqsFromWorkers+clientId+fileName);
-            sqsUrl= aws.getQueueUrl(sqsFromWorkers+clientId+fileName);
+
+            System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"+"entered setup"+"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+            sqsUrl= aws.createSQS(clientId+"_"+userInputCount);
+            System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"+"sqs created"+"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+
         }
 
         //send the jobs to the queue of the workers according to the total num of batches
         public  void jobsToWorkersquere() {
+            System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~jobs to worker~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
             for (int i = 1; i <= TotalNumOfBatches; i++) {
-                aws.sendMessage("input"+"\t"+clientId+"\t"+fileName+"\t"+i, managerToWorkersURL);
+                aws.sendMessage("input"+"\t"+clientId+"\t"+fileName+"\t"+userInputCount+"\t"+i, managerToWorkersURL);
             }
         }
 
@@ -228,6 +242,7 @@ public class Manager {
 
         @Override
         public void run() {
+            System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~thread started running~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
 
             boolean isDone=false;
 
@@ -243,7 +258,7 @@ public class Manager {
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
                     }
-                    messages =aws.receiveMessage(workersToManagerURL, 1);
+                    messages =aws.receiveMessage(sqsUrl, 1);
                 }while (messages.isEmpty());
 
                 try {
@@ -266,6 +281,7 @@ public class Manager {
             aws.deleteSingleQueue(sqsUrl);
             processClientFile.DecrementThreadcounter();
             filesProcessingCounter.decrementAndGet();
+            System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~thread finished~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
 
         }
     }
@@ -283,13 +299,20 @@ public class Manager {
         for (int i = 0; i < numOfWorkersNeeded; i++) {
             if (aws.countWorkerInstances() < AWS.MAX_WORKERS_INSTANCES) {
                 String workerId = aws.createEC2(workerScript,"worker",1);
-                String workerKey ="worker" + i + numberOfRunningWorkers +1;
-                workerIds.put(workerKey, workerId);
+              //  String workerKey ="worker" + (i + numberOfRunningWorkers +1);
+                workerIds.put(workerId, workerId);
             }
             else{
                 break;
             }
         }
+    }
+
+    public static void updateUsersInputMap(String userId){
+        if(usersInputCount.containsKey(userId)){
+            usersInputCount.put(userId,usersInputCount.get(userId) + 1);
+        }
+        else usersInputCount.put(userId,1);
     }
 
 }
