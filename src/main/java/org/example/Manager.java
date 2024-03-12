@@ -57,7 +57,7 @@ public class Manager {
         System.out.println("received Terminate Message");
         //terminate all instances when finished
         //while(processClientFile.getThreadCounter()>0 && !filesProcessingCounter.equals(new AtomicInteger(0))){
-        while(!filesProcessingCounter.equals(new AtomicInteger(0))){
+        while(processClientFile.getThreadCounter()>0){
             try {
                 Thread.sleep(5000); //5 seconds sleep between everycheck
             } catch (InterruptedException e) {
@@ -130,7 +130,9 @@ public class Manager {
         //Terminate all workers, then manager
         Set<String> keys = workerIds.keySet();
         String[] keysArray = keys.toArray(new String[0]);
-        for (int i = 1; i <= aws.countWorkerInstances(); i++) {
+        int numOfInstances=aws.countWorkerInstances();
+
+        for (int i = 1; i <=numOfInstances; i++) {
             aws.terminateInstance(workerIds.get("worker" + i));
             System.out.println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  ~~~ Terminated Worker- "+keysArray[i]);
         }
@@ -149,7 +151,7 @@ public class Manager {
 
     public static class processClientFile implements Runnable {
 
-        private static Object counterLock = new Object();
+        private static final Object counterLock = new Object();
         private static int threadCounter = 0;
         String clientId;
         String fileName;
@@ -171,25 +173,25 @@ public class Manager {
 
             TotalNumOfBatches=Integer.parseInt(message[3]);
             results=new String[TotalNumOfBatches+1];
-            //IncrementThreadcounter();
+            IncrementThreadcounter();
             System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~thread started~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
         }
-//        public static  void IncrementThreadcounter() {
-//            synchronized (counterLock) {
-//                threadCounter++;
-//            }
-//        }
-//        public static void DecrementThreadcounter() {
-//            synchronized (counterLock) {
-//                threadCounter--;
-//            }
-//        }
-//
-//        public static int getThreadCounter() {
-//            synchronized (counterLock) {
-//                return  threadCounter;
-//            }
-//        }
+        public static  void IncrementThreadcounter() {
+            synchronized (counterLock) {
+                threadCounter++;
+            }
+        }
+        public static void DecrementThreadcounter() {
+            synchronized (counterLock) {
+                threadCounter--;
+            }
+        }
+
+        public static int getThreadCounter() {
+            synchronized (counterLock) {
+                return  threadCounter;
+            }
+        }
 
 
         public void mysetup()
@@ -285,7 +287,7 @@ public class Manager {
 
             finalResult();
             aws.deleteSingleQueue(sqsUrl);
-           // processClientFile.DecrementThreadcounter();
+           processClientFile.DecrementThreadcounter();
             filesProcessingCounter.decrementAndGet();
             System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~thread finished~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
 
