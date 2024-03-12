@@ -390,13 +390,26 @@ public class AWS {
                     .build());
 
             // Retrieve the approximate number of messages in the queue
-            int numberOfMessages = Integer.parseInt(queueAttributesResponse.attributes().get(QueueAttributeName.APPROXIMATE_NUMBER_OF_MESSAGES.toString()));
+            String numberOfMessagesStr = queueAttributesResponse.attributes().get(QueueAttributeName.APPROXIMATE_NUMBER_OF_MESSAGES);
+
+            // Check if the attribute value is null
+            if (numberOfMessagesStr == null) {
+                System.err.println("Approximate number of messages attribute is null.");
+                return false;
+            }
+
+            // Parse the number of messages into an integer
+            int numberOfMessages = Integer.parseInt(numberOfMessagesStr);
 
             // If the number of messages is 0, the queue is considered empty
             return numberOfMessages == 0;
         } catch (SqsException e) {
             System.err.println("Error occurred while checking if the queue is empty: " + e.awsErrorDetails().errorMessage());
             return false; // Return false in case of any error
+        } catch (NumberFormatException e) {
+            System.err.println("Error occurred while parsing number of messages: " + e.getMessage());
+            return false; // Return false if parsing fails
         }
     }
+
 }
