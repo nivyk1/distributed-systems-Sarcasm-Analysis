@@ -13,9 +13,7 @@ import software.amazon.awssdk.services.sqs.model.*;
 
 import java.io.File;
 import java.io.InputStream;
-import java.util.Base64;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 public class AWS {
     private final String managerScript = "#! /bin/bash\n" +
@@ -158,20 +156,6 @@ public class AWS {
         return instanceId;
     }
 
-    public void createSqsQueue(String queueName) {
-        CreateQueueRequest createQueueRequest = CreateQueueRequest.builder()
-                .queueName(queueName)
-                .attributes(Collections.singletonMap(QueueAttributeName.VISIBILITY_TIMEOUT, "600"))
-                .build();
-        sqs.createQueue(createQueueRequest);
-    }
-//    public void createSqsQueue(String queueName) {
-//        CreateQueueRequest createQueueRequest = CreateQueueRequest.builder()
-//                .queueName(queueName)
-//                .attributes(Collections.singletonMap(QueueAttributeName.VISIBILITY_TIMEOUT.toString(), "90"))
-//                .build();
-//        sqs.createQueue(createQueueRequest);
-//    }
 
 
     //this function checks all running instance for the manager tag
@@ -230,10 +214,13 @@ public class AWS {
     }
 
     public String createSQS(String name) {
+        Map<QueueAttributeName, String> attributes = new HashMap<>();
+        attributes.put(QueueAttributeName.FIFO_QUEUE, "true");
 
         try {
             CreateQueueRequest createQueueRequest = CreateQueueRequest.builder()
                     .queueName(name)
+                    .attributes(attributes)
                     .build();
 
             sqs.createQueue(createQueueRequest);
