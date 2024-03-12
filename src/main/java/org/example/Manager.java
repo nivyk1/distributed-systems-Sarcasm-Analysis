@@ -27,13 +27,11 @@ public class Manager {
     private static final int reviewPerBatch = 10;
     private static String managerId;
 
-    private static final String sqsFromclients = "clientsToManager";
+    private static final String sqsFromclients = "clientsToManager.fifo";
     public static String clientsToManagerURL;
-    private static final String sqsToClients = "managerToClients";
+    private static final String sqsToClients = "managerToClients.fifo";
     public static String managerToClientsURL;
-    private static final String sqsFromWorkers = "workersToManager";
-    public static String workersToManagerURL;
-    private static final String sqsToWorkers = "managerToWorkers";
+    private static final String sqsToWorkers = "managerToWorkers.fifo";
     public static String managerToWorkersURL;
     private static boolean terminateFlag = false;
     private static AtomicInteger filesProcessingCounter= new AtomicInteger(0) ;
@@ -198,7 +196,7 @@ public class Manager {
         {
 
             System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"+"entered setup"+"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            sqsUrl= aws.createSQS(clientId+"_"+userInputCount);
+            sqsUrl= aws.createSQS(clientId+"_"+userInputCount+".fifo");
             System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"+"sqs created"+"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
 
         }

@@ -18,7 +18,6 @@ public class Worker {
     };
 
     private final static AWS aws = AWS.getInstance();
-    private static final String sqsToManager = "workersToManager";
     public static String workersToManagerURL;
     private static final String sqsFromManager = "managerToWorkers";
     public static String ManagerToWorkersURL;
@@ -50,7 +49,7 @@ public class Worker {
                         aws.uploadString(bucketName, outPutKey, jobProccess(aws.getFile(bucketName, filePathS3)));
                         // notify the manager that it has a new task
                         String message = outPutKey;
-                        workersToManagerURL=aws.getQueueUrl(clientId+"_"+userInputCount);
+                        workersToManagerURL=aws.getQueueUrl(clientId+"_"+userInputCount+".fifo");
                         aws.sendMessage(batchNumber, workersToManagerURL);
                 }catch (Exception e) {
                     e.printStackTrace();

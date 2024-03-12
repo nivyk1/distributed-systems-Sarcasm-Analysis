@@ -203,7 +203,8 @@ public class AWS {
         sqs.sendMessage(SendMessageRequest.builder()
                 .queueUrl(queueUrl)
                 .messageBody(message)
-                .delaySeconds(10)
+                .messageGroupId("default")
+                .messageDeduplicationId(System.currentTimeMillis() + "")
                 .build());
     }
 

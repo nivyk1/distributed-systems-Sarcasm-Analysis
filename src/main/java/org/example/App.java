@@ -16,13 +16,11 @@ public class App {
     static String clientId = UUID.randomUUID().toString();
     final static String bucketName = AWS.input_Output_Bucket;
     public static String managerId;
-    private static final String sqsOut = "clientsToManager";
+    private static final String sqsOut = "clientsToManager.fifo";
     public static String clientsToManagerURL;
-    private static final String sqsIn = "managerToClients";
+    private static final String sqsIn = "managerToClients.fifo";
     public static String managerToClientsURL;
-   // private static final String sqsFromWorkers = "workersToManager";
-   // public static String workersToManagerURL;
-    private static final String sqsToWorkers = "managerToWorkers";
+    private static final String sqsToWorkers = "managerToWorkers.fifo";
     public static String managerToWorkersURL;
     public static boolean terminate;
 
@@ -93,11 +91,9 @@ public class App {
             System.out.println("Creating SQS...");
             clientsToManagerURL = aws.createSQS(sqsOut);
             managerToClientsURL = aws.createSQS(sqsIn);
-            //workersToManagerURL = aws.createSQS(sqsFromWorkers);
-            //managerToWorkersURL = aws.createSQS(sqsToWorkers);
             System.out.println("Finished creating SQS");
 
-           //managerId = aws.createEC2Manager();
+           managerId = aws.createEC2Manager();
            System.out.println("Manager activated");
         }
         catch(Exception e){
