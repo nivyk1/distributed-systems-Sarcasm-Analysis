@@ -14,6 +14,7 @@ import software.amazon.awssdk.services.sqs.model.*;
 import java.io.File;
 import java.io.InputStream;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.List;
 
 public class AWS {
@@ -160,9 +161,17 @@ public class AWS {
     public void createSqsQueue(String queueName) {
         CreateQueueRequest createQueueRequest = CreateQueueRequest.builder()
                 .queueName(queueName)
+                .attributes(Collections.singletonMap(QueueAttributeName.VISIBILITY_TIMEOUT, "600"))
                 .build();
         sqs.createQueue(createQueueRequest);
     }
+//    public void createSqsQueue(String queueName) {
+//        CreateQueueRequest createQueueRequest = CreateQueueRequest.builder()
+//                .queueName(queueName)
+//                .attributes(Collections.singletonMap(QueueAttributeName.VISIBILITY_TIMEOUT.toString(), "90"))
+//                .build();
+//        sqs.createQueue(createQueueRequest);
+//    }
 
 
     //this function checks all running instance for the manager tag
@@ -243,6 +252,7 @@ public class AWS {
     public List<Message> receiveMessage(String queueUrl, int numOfMessages) {
         ReceiveMessageRequest receiveMessageRequest = ReceiveMessageRequest.builder()
                 .queueUrl(queueUrl)
+                .visibilityTimeout(600)
                 .maxNumberOfMessages(numOfMessages)
                 .build();
         return sqs.receiveMessage(receiveMessageRequest).messages();
@@ -284,27 +294,36 @@ public class AWS {
         return count;
     }
 
-    public void deleteAllQueues(){
+    public void deleteAllQueues(String managerToClientsURL) {
         try {
+            // Get the URL of the managerToClients queue
+            // Wait until the managerToClients queue is empty
+            while (!isQueueEmpty(managerToClientsURL)) {
+                System.out.println("Waiting for managerToClients queue to become empty...");
+                Thread.sleep(1000); // Wait for 1 second before checking again
+            }
+
             // Get a list of all SQS queues
             ListQueuesResponse listQueuesResponse = sqs.listQueues();
             List<String> queueUrls = listQueuesResponse.queueUrls();
 
-            // Iterate over each queue URL and delete the queue
+            // Iterate over each queue URL
             for (String queueUrl : queueUrls) {
+                // Delete the queue
                 DeleteQueueRequest deleteQueueRequest = DeleteQueueRequest.builder()
                         .queueUrl(queueUrl)
                         .build();
                 sqs.deleteQueue(deleteQueueRequest);
                 System.out.println("Deleted queue: " + queueUrl);
             }
-        }
-        catch (SqsException e) {
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt(); // Restore interrupted status
+            System.err.println("Thread interrupted while waiting: " + e.getMessage());
+        } catch (SqsException e) {
             System.err.println(e.awsErrorDetails().errorMessage());
             System.exit(1);
         }
     }
-
     public void deleteSingleQueue(String queueUrl)
     {
         DeleteQueueRequest deleteQueueRequest = DeleteQueueRequest.builder()
@@ -314,14 +333,27 @@ public class AWS {
     }
 
 
-    //this functions delete all files from all buckets except the Jar bucket
-    public void deleteAllBuckets(){
+    //this functions deletes all files from a bucket and then deleting the bucket, this works on all buckets except the Jar bucket
+    public void deleteAllBuckets() {
         try {
             // Get a list of all S3 buckets
             ListBucketsResponse listBucketsResponse = s3.listBuckets();
             for (Bucket bucket : listBucketsResponse.buckets()) {
                 String bucketName = bucket.name();
-                if (!bucketName.equals(AWS.Jars_Bucket_name)) { //delete everything except jar bucket
+                if (!bucketName.equals(AWS.Jars_Bucket_name)) { // Delete everything except jar bucket
+                    // Empty the bucket by deleting all objects (files) within it
+                    ListObjectsV2Request listObjectsRequest = ListObjectsV2Request.builder()
+                            .bucket(bucketName)
+                            .build();
+                    ListObjectsV2Response listObjectsResponse = s3.listObjectsV2(listObjectsRequest);
+                    for (S3Object s3Object : listObjectsResponse.contents()) {
+                        DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
+                                .bucket(bucketName)
+                                .key(s3Object.key())
+                                .build();
+                        s3.deleteObject(deleteObjectRequest);
+                        //System.out.println("Deleted object: " + s3Object.key() + " from bucket: " + bucketName);
+                    }
                     // Delete the bucket
                     DeleteBucketRequest deleteBucketRequest = DeleteBucketRequest.builder()
                             .bucket(bucketName)
@@ -346,6 +378,25 @@ public class AWS {
         } catch (Ec2Exception e) {
             System.err.println(e.awsErrorDetails().errorMessage());
             System.exit(1);
+        }
+    }
+
+    private boolean isQueueEmpty(String queueUrl) {
+        try {
+            // Get the attributes of the queue
+            GetQueueAttributesResponse queueAttributesResponse = sqs.getQueueAttributes(GetQueueAttributesRequest.builder()
+                    .queueUrl(queueUrl)
+                    .attributeNames(QueueAttributeName.APPROXIMATE_NUMBER_OF_MESSAGES)
+                    .build());
+
+            // Retrieve the approximate number of messages in the queue
+            int numberOfMessages = Integer.parseInt(queueAttributesResponse.attributes().get(QueueAttributeName.APPROXIMATE_NUMBER_OF_MESSAGES.toString()));
+
+            // If the number of messages is 0, the queue is considered empty
+            return numberOfMessages == 0;
+        } catch (SqsException e) {
+            System.err.println("Error occurred while checking if the queue is empty: " + e.awsErrorDetails().errorMessage());
+            return false; // Return false in case of any error
         }
     }
 }

@@ -97,7 +97,7 @@ public class App {
             //managerToWorkersURL = aws.createSQS(sqsToWorkers);
             System.out.println("Finished creating SQS");
 
-           managerId = aws.createEC2Manager();
+           //managerId = aws.createEC2Manager();
            System.out.println("Manager activated");
         }
         catch(Exception e){

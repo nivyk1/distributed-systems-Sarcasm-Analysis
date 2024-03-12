@@ -54,15 +54,17 @@ public class Manager {
         while(!terminateFlag){
             ReceiveMessageFromClient();
         }
+        System.out.println("received Terminate Message");
         //terminate all instances when finished
-        while(processClientFile.getThreadCounter()>0 && !filesProcessingCounter.equals(new AtomicInteger(0))){
+        //while(processClientFile.getThreadCounter()>0 && !filesProcessingCounter.equals(new AtomicInteger(0))){
+        while(!filesProcessingCounter.equals(new AtomicInteger(0))){
             try {
                 Thread.sleep(5000); //5 seconds sleep between everycheck
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
         }
-            //if(managerToClientsURL.isEmpty())
+        System.out.println("Entering terminate Function");
                 terminate();
 
     }
@@ -77,6 +79,7 @@ public class Manager {
             for (Message msg : messages) {
                 if (msg.body().equals("terminate")) {
                     terminateFlag = true;
+                    aws.deleteMessage(msg, clientsToManagerURL);
                     //don't receive more messages from clients
                     break;
                 }
@@ -122,16 +125,19 @@ public class Manager {
 
     private static void terminate() {
 
-        aws.deleteAllQueues();
-        aws.deleteAllBuckets();
+
 
         //Terminate all workers, then manager
         Set<String> keys = workerIds.keySet();
         String[] keysArray = keys.toArray(new String[0]);
-        for (int i = 0; i < aws.countWorkerInstances(); i++) {
-            aws.terminateInstance(workerIds.get("worker" + i +1));
+        for (int i = 1; i <= aws.countWorkerInstances(); i++) {
+            aws.terminateInstance(workerIds.get("worker" + i));
             System.out.println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  ~~~ Terminated Worker- "+keysArray[i]);
         }
+
+
+        aws.deleteAllQueues(managerToClientsURL);
+        aws.deleteAllBuckets();
         aws.terminateInstance(managerId);
     }
 
@@ -165,25 +171,25 @@ public class Manager {
 
             TotalNumOfBatches=Integer.parseInt(message[3]);
             results=new String[TotalNumOfBatches+1];
-            IncrementThreadcounter();
+            //IncrementThreadcounter();
             System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~thread started~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
         }
-        public static  void IncrementThreadcounter() {
-            synchronized (counterLock) {
-                threadCounter++;
-            }
-        }
-        public static void DecrementThreadcounter() {
-            synchronized (counterLock) {
-                threadCounter--;
-            }
-        }
-
-        public static int getThreadCounter() {
-            synchronized (counterLock) {
-                return  threadCounter;
-            }
-        }
+//        public static  void IncrementThreadcounter() {
+//            synchronized (counterLock) {
+//                threadCounter++;
+//            }
+//        }
+//        public static void DecrementThreadcounter() {
+//            synchronized (counterLock) {
+//                threadCounter--;
+//            }
+//        }
+//
+//        public static int getThreadCounter() {
+//            synchronized (counterLock) {
+//                return  threadCounter;
+//            }
+//        }
 
 
         public void mysetup()
@@ -279,7 +285,7 @@ public class Manager {
 
             finalResult();
             aws.deleteSingleQueue(sqsUrl);
-            processClientFile.DecrementThreadcounter();
+           // processClientFile.DecrementThreadcounter();
             filesProcessingCounter.decrementAndGet();
             System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~thread finished~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
 
@@ -299,8 +305,8 @@ public class Manager {
         for (int i = 0; i < numOfWorkersNeeded; i++) {
             if (aws.countWorkerInstances() < AWS.MAX_WORKERS_INSTANCES) {
                 String workerId = aws.createEC2(workerScript,"worker",1);
-              //  String workerKey ="worker" + (i + numberOfRunningWorkers +1);
-                workerIds.put(workerId, workerId);
+                String workerKey ="worker" + (i + numberOfRunningWorkers +1);
+                workerIds.put(workerKey, workerId);
             }
             else{
                 break;
