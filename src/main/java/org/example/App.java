@@ -50,7 +50,6 @@ public class App {
         {
             clientsToManagerURL = aws.getQueueUrl(sqsOut);
             managerToClientsURL = aws.getQueueUrl(sqsIn);
-            managerToWorkersURL = aws.getQueueUrl(sqsToWorkers);
         }
 
 
