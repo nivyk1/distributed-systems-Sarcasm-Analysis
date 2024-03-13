@@ -1,6 +1,4 @@
-Nitay Maoz 313359341
-
-Niv Yaakov 315311118
+Niv Yaakov 
 
 
 
