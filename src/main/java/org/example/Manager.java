@@ -119,13 +119,10 @@ public class Manager {
 
 
         //Terminate all workers, then manager
-        Set<String> keys = workerIds.keySet();
-        String[] keysArray = keys.toArray(new String[0]);
         int numOfInstances=aws.countWorkerInstances();
-
         for (int i = 1; i <=numOfInstances; i++) {
             aws.terminateInstance(workerIds.get("worker" + i));
-            System.out.println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  ~~~ Terminated Worker- "+keysArray[i]);
+            workerIds.remove("worker"+i);
         }
 
 
