@@ -67,6 +67,7 @@ public class App {
 
                     if(m.body().split("\t")[1].equals(clientId)) {
                         try {
+                            aws.deleteMessage(m, managerToClientsURL);
                             InputStream content = aws.getFile(bucketName, m.body());
                             int inputIndexInArgs = argsList.indexOf(m.body().split("\t")[2]);
                             createHtml(content, args[inputIndexInArgs + numOfInputFiles]);
@@ -75,9 +76,7 @@ public class App {
                         catch (Exception e) {
                             e.printStackTrace();
                         }
-                        finally {
-                            aws.deleteMessage(m, managerToClientsURL);
-                        }
+
                     }
                 }
 
