@@ -314,7 +314,7 @@ public class AWS {
             // Wait until the managerToClients queue is empty
             while (!isQueueEmpty(managerToClientsURL)) {
                 System.out.println("Waiting for managerToClients queue to become empty...");
-                Thread.sleep(1000); // Wait for 1 second before checking again
+                Thread.sleep(35000); // Wait for 35 second before checking again
             }
 
             // Get a list of all SQS queues
