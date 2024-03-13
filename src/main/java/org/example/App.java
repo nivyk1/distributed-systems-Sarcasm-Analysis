@@ -61,14 +61,24 @@ public class App {
         boolean isfinished = false;
         List<String> argsList=Arrays.asList(args);
         while (!isfinished) {
-            List<Message> messages = aws.receiveMessage(managerToClientsURL, 5);
+            List<Message> messages = aws.receiveMessage(managerToClientsURL, 5,30);
             for (Message m : messages) {
                 {
-                   InputStream content = aws.getFile(bucketName, m.body());
-                   int inputIndexInArgs=argsList.indexOf(m.body().split("\t")[2]);
-                   createHtml(content,args[inputIndexInArgs+numOfInputFiles]);
-                   numOfOutputs++;
-                   aws.deleteMessage(m,managerToClientsURL);
+
+                    if(m.body().split("\t")[1].equals(clientId)) {
+                        try {
+                            InputStream content = aws.getFile(bucketName, m.body());
+                            int inputIndexInArgs = argsList.indexOf(m.body().split("\t")[2]);
+                            createHtml(content, args[inputIndexInArgs + numOfInputFiles]);
+                            numOfOutputs++;
+                        }
+                        catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                        finally {
+                            aws.deleteMessage(m, managerToClientsURL);
+                        }
+                    }
                 }
 
             }
@@ -93,7 +103,7 @@ public class App {
             managerToClientsURL = aws.createSQSFifo(sqsIn);
             System.out.println("Finished creating SQS");
 
-           managerId = aws.createEC2Manager();
+          managerId = aws.createEC2Manager();
            System.out.println("Manager activated");
         }
         catch(Exception e){

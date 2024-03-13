@@ -34,7 +34,7 @@ public class Worker {
         ManagerToWorkersURL=aws.getQueueUrl(sqsFromManager);
         while (true) {
 
-            List<Message> messages = aws.receiveMessage(ManagerToWorkersURL, 1);
+            List<Message> messages = aws.receiveMessage(ManagerToWorkersURL, 1,400);
             for (Message msg : messages) {
                 try {
                        //message format: "input"+"\t"+clientId+"\t"+fileName+"\t"+userInputCount+"\t"+batchNumber

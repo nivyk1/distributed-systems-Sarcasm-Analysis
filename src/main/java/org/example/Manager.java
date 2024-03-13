@@ -65,7 +65,7 @@ public class Manager {
 
     //message structure :"input"+"\t"+clientId + "\t" + inputPath+"\t"+batchesToUpload.size()+"\t"+tasksPerWorker+"\t"+totalreviews;
     private static void ReceiveMessageFromClient(){
-        List<Message> messages = aws.receiveMessage(clientsToManagerURL, 1);
+        List<Message> messages = aws.receiveMessage(clientsToManagerURL, 1,400);
 
         if (!messages.isEmpty()) {
             System.out.println("Manager received a message");
@@ -253,7 +253,7 @@ public class Manager {
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
                     }
-                    messages =aws.receiveMessage(sqsUrl, 1);
+                    messages =aws.receiveMessage(sqsUrl, 1,400);
                 }while (messages.isEmpty());
 
                 try {

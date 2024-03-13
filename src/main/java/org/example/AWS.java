@@ -263,10 +263,10 @@ public class AWS {
     }
 
     //pull messages from queue up to maximum of numOfMessages
-    public List<Message> receiveMessage(String queueUrl, int numOfMessages) {
+    public List<Message> receiveMessage(String queueUrl, int numOfMessages,int visibilityTimeout ) {
         ReceiveMessageRequest receiveMessageRequest = ReceiveMessageRequest.builder()
                 .queueUrl(queueUrl)
-                .visibilityTimeout(600)
+                .visibilityTimeout(visibilityTimeout)
                 .maxNumberOfMessages(numOfMessages)
                 .build();
               return sqs.receiveMessage(receiveMessageRequest).messages();
