@@ -5,7 +5,7 @@ import java.io.*;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
+
 
 
 public class Manager {
@@ -23,19 +23,15 @@ public class Manager {
 
 
     final static String input_Output_Bucket = AWS.input_Output_Bucket;
-    
-    private static final int reviewPerBatch = 10;
     private static String managerId;
 
     private static final String sqsFromclients = "clientsToManager.fifo";
     public static String clientsToManagerURL;
     private static final String sqsToClients = "managerToClients.fifo";
     public static String managerToClientsURL;
-    private static final String sqsToWorkers = "managerToWorkers.fifo";
+    private static final String sqsToWorkers = "managerToWorkers";
     public static String managerToWorkersURL;
     private static boolean terminateFlag = false;
-    private static AtomicInteger filesProcessingCounter= new AtomicInteger(0) ;
-
     public static ConcurrentHashMap<String, String> workerIds = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, Integer> usersInputCount = new ConcurrentHashMap<>();
 
@@ -54,7 +50,6 @@ public class Manager {
         }
         System.out.println("received Terminate Message");
         //terminate all instances when finished
-        //while(processClientFile.getThreadCounter()>0 && !filesProcessingCounter.equals(new AtomicInteger(0))){
         while(processClientFile.getThreadCounter()>0){
             try {
                 Thread.sleep(5000); //5 seconds sleep between everycheck
@@ -82,7 +77,6 @@ public class Manager {
                     break;
                 }
                 else {
-                    filesProcessingCounter.incrementAndGet(); //count working process
                     String[] msgArr =messages.get(0).body().split("\t");
                     int tasksPerWorker = Integer.parseInt(msgArr[4]);
                     int totalReviews = Integer.parseInt(msgArr[5]);
@@ -109,7 +103,6 @@ public class Manager {
 
     //Setting up SQS and other resources
     private static void setup(){
-        //managerId = aws.createEC2Manager();
         System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~created manager~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
         System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~entered setup~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
         clientsToManagerURL = aws.getQueueUrl(sqsFromclients);
@@ -167,7 +160,6 @@ public class Manager {
             String[] message = msg.split("\t");
             clientId=message[1];
             fileName=message[2];
-//            fileNameWithoutSpecialChars = fileName.replaceAll("[\\\\:]","");
 
             TotalNumOfBatches=Integer.parseInt(message[3]);
             results=new String[TotalNumOfBatches+1];
@@ -196,7 +188,7 @@ public class Manager {
         {
 
             System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"+"entered setup"+"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            sqsUrl= aws.createSQS(clientId+"_"+userInputCount+".fifo");
+            sqsUrl= aws.createSQSFifo(clientId+"_"+userInputCount+".fifo");
             System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"+"sqs created"+"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
 
         }
@@ -205,7 +197,7 @@ public class Manager {
         public  void jobsToWorkersquere() {
             System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~jobs to worker~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
             for (int i = 1; i <= TotalNumOfBatches; i++) {
-                aws.sendMessage("input"+"\t"+clientId+"\t"+fileName+"\t"+userInputCount+"\t"+i, managerToWorkersURL);
+                aws.sendMessageStandardQueue("input"+"\t"+clientId+"\t"+fileName+"\t"+userInputCount+"\t"+i, managerToWorkersURL);
             }
         }
 
@@ -286,7 +278,6 @@ public class Manager {
             finalResult();
             aws.deleteSingleQueue(sqsUrl);
            processClientFile.DecrementThreadcounter();
-            filesProcessingCounter.decrementAndGet();
             System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~thread finished~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
 
         }

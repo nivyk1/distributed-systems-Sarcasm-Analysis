@@ -89,8 +89,8 @@ public class App {
             System.out.println("[DEBUG] Created bucket"+ "\t" + bucketName);
 
             System.out.println("Creating SQS...");
-            clientsToManagerURL = aws.createSQS(sqsOut);
-            managerToClientsURL = aws.createSQS(sqsIn);
+            clientsToManagerURL = aws.createSQSFifo(sqsOut);
+            managerToClientsURL = aws.createSQSFifo(sqsIn);
             System.out.println("Finished creating SQS");
 
            managerId = aws.createEC2Manager();

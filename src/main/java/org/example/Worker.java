@@ -48,7 +48,6 @@ public class Worker {
                         //process the job and send the result to the queue
                         aws.uploadString(bucketName, outPutKey, jobProccess(aws.getFile(bucketName, filePathS3)));
                         // notify the manager that it has a new task
-                        String message = outPutKey;
                         workersToManagerURL=aws.getQueueUrl(clientId+"_"+userInputCount+".fifo");
                         aws.sendMessage(batchNumber, workersToManagerURL);
                 }catch (Exception e) {
@@ -66,12 +65,7 @@ public class Worker {
             String line;
             StringBuilder result= new StringBuilder();
             while ((line = reader.readLine()) != null) {
-
-
                 result.append(ReviewHtmlmaker(line.split("\t")));
-
-
-
         }
             return result.toString();
         } catch (IOException e) {

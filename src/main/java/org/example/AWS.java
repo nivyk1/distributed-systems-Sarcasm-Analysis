@@ -52,7 +52,7 @@ public class AWS {
     public static final String jar_test = "test-jar";
     public static final String input_Output_Bucket = "super-duper-bucket-nitay";
     public static final String Output_Bucket_name = "";
-    public static final String Jars_Bucket_name = "nitay-aws-jar";
+    public static final String Jars_Bucket_name = "niv-aws-test";
 
 
     // S3
@@ -84,7 +84,7 @@ public class AWS {
                 .maxCount(1)
                 .minCount(1)
                 .keyName("vockey")
-                .iamInstanceProfile(IamInstanceProfileSpecification.builder().arn("arn:aws:iam::905418107445:instance-profile/LabInstanceProfile").build())
+                .iamInstanceProfile(IamInstanceProfileSpecification.builder().name("LabInstanceProfile").build())
                 .userData(Base64.getEncoder().encodeToString((managerScript).getBytes()))
                 .build();
 
@@ -207,6 +207,13 @@ public class AWS {
                 .messageDeduplicationId(System.currentTimeMillis() + "")
                 .build());
     }
+    public void sendMessageStandardQueue(String message, String queueUrl) {
+        sqs.sendMessage(SendMessageRequest.builder()
+                .queueUrl(queueUrl)
+                .messageBody(message)
+                .delaySeconds(10)
+                .build());
+    }
 
     public String getQueueUrl(String queueName) {
         GetQueueUrlResponse getQueueUrlResponse =
@@ -214,7 +221,7 @@ public class AWS {
         return getQueueUrlResponse.queueUrl();
     }
 
-    public String createSQS(String name) {
+    public String createSQSFifo(String name) {
         Map<QueueAttributeName, String> attributes = new HashMap<>();
         attributes.put(QueueAttributeName.FIFO_QUEUE, "true");
 
@@ -236,6 +243,25 @@ public class AWS {
         return "failed";
     }
 
+    public String createSQS(String name) {
+
+        try {
+            CreateQueueRequest createQueueRequest = CreateQueueRequest.builder()
+                    .queueName(name)
+                    .build();
+
+            sqs.createQueue(createQueueRequest);
+
+            GetQueueUrlResponse getQueueUrlResponse = sqs.getQueueUrl(GetQueueUrlRequest.builder().queueName(name).build());
+            return getQueueUrlResponse.queueUrl();
+
+        } catch (SqsException e) {
+            System.err.println(e.awsErrorDetails().errorMessage());
+            System.exit(1);
+        }
+        return "failed";
+    }
+
     //pull messages from queue up to maximum of numOfMessages
     public List<Message> receiveMessage(String queueUrl, int numOfMessages) {
         ReceiveMessageRequest receiveMessageRequest = ReceiveMessageRequest.builder()
@@ -243,7 +269,7 @@ public class AWS {
                 .visibilityTimeout(600)
                 .maxNumberOfMessages(numOfMessages)
                 .build();
-        return sqs.receiveMessage(receiveMessageRequest).messages();
+              return sqs.receiveMessage(receiveMessageRequest).messages();
     }
     public void deleteMessage(Message message, String queueUrl) {
 
